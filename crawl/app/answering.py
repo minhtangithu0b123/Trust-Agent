@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -9,14 +9,20 @@ from .domains import DomainConfig, get_domain_config
 from .retrieval import HybridResult, get_hybrid_retriever
 
 logger = logging.getLogger(__name__)
-INSUFFICIENT_EVIDENCE = "Chưa đủ căn cứ từ dữ liệu hiện có để kết luận."
-SYSTEM_PROMPT = """Bạn là {prompt_name} của Trust Agent.
+INSUFFICIENT_EVIDENCE = "ChÆ°a Ä‘á»§ cÄƒn cá»© tá»« dá»¯ liá»‡u hiá»‡n cÃ³ Ä‘á»ƒ káº¿t luáº­n."
 
-Chỉ trả lời dựa trên evidence được cung cấp trong prompt. Không sử dụng kiến thức bên ngoài evidence. Không tự bịa Điều, Khoản, tên văn bản, số hiệu, mức tiền hoặc ngày hiệu lực.
+def contains_insufficient_evidence(answer: str) -> bool:
+    normalized = " ".join(str(answer).casefold().split()).rstrip(".")
+    phrase = "chưa đủ căn cứ từ dữ liệu hiện có để kết luận"
+    return phrase in normalized
 
-Nếu evidence không đủ để kết luận, phải nói đúng: "Chưa đủ căn cứ từ dữ liệu hiện có để kết luận." Không thay thế tư vấn pháp lý chuyên nghiệp.
+SYSTEM_PROMPT = """Báº¡n lÃ  {prompt_name} cá»§a Trust Agent.
 
-Trả lời bằng tiếng Việt rõ ràng, dễ hiểu. Phân biệt rõ phần "Quy định pháp luật" và phần "Suy luận theo tình huống" nếu có suy luận. Chỉ đưa các document_id thực sự dùng để trả lời vào cited_document_ids.
+Chá»‰ tráº£ lá»i dá»±a trÃªn evidence Ä‘Æ°á»£c cung cáº¥p trong prompt. KhÃ´ng sá»­ dá»¥ng kiáº¿n thá»©c bÃªn ngoÃ i evidence. KhÃ´ng tá»± bá»‹a Äiá»u, Khoáº£n, tÃªn vÄƒn báº£n, sá»‘ hiá»‡u, má»©c tiá»n hoáº·c ngÃ y hiá»‡u lá»±c.
+
+Náº¿u evidence khÃ´ng Ä‘á»§ Ä‘á»ƒ káº¿t luáº­n, pháº£i nÃ³i Ä‘Ãºng: "ChÆ°a Ä‘á»§ cÄƒn cá»© tá»« dá»¯ liá»‡u hiá»‡n cÃ³ Ä‘á»ƒ káº¿t luáº­n." KhÃ´ng thay tháº¿ tÆ° váº¥n phÃ¡p lÃ½ chuyÃªn nghiá»‡p.
+
+Tráº£ lá»i báº±ng tiáº¿ng Viá»‡t rÃµ rÃ ng, dá»… hiá»ƒu. PhÃ¢n biá»‡t rÃµ pháº§n "Quy Ä‘á»‹nh phÃ¡p luáº­t" vÃ  pháº§n "Suy luáº­n theo tÃ¬nh huá»‘ng" náº¿u cÃ³ suy luáº­n. Chá»‰ Ä‘Æ°a cÃ¡c document_id thá»±c sá»± dÃ¹ng Ä‘á»ƒ tráº£ lá»i vÃ o cited_document_ids.
 """
 
 
@@ -42,13 +48,13 @@ def build_legal_context(evidence: list[HybridResult], domain_config: DomainConfi
         blocks.append("\n".join([
             f"[DOMAIN: {metadata.get('domain', label)}]",
             f"[DOCUMENT_ID: {metadata.get('id')}]",
-            f"Tên văn bản: {metadata.get('ten_van_ban')}",
-            f"Số hiệu: {metadata.get('so_hieu')}",
-            f"Chương: {metadata.get('chuong')}",
-            f"Điều: {metadata.get('dieu')}",
-            f"Khoản: {metadata.get('khoan')}",
+            f"TÃªn vÄƒn báº£n: {metadata.get('ten_van_ban')}",
+            f"Sá»‘ hiá»‡u: {metadata.get('so_hieu')}",
+            f"ChÆ°Æ¡ng: {metadata.get('chuong')}",
+            f"Äiá»u: {metadata.get('dieu')}",
+            f"Khoáº£n: {metadata.get('khoan')}",
             f"Source: {metadata.get('source')}",
-            f"Nội dung:\n{item.document.page_content}",
+            f"Ná»™i dung:\n{item.document.page_content}",
         ]))
     return "\n\n--- EVIDENCE ---\n\n".join(blocks)
 
@@ -158,9 +164,12 @@ def answer_question(
         logger.warning("LLM provider unavailable: %s", exc)
         return {
             **base,
-            "answer": "Chưa thể tạo câu trả lời vì LLM provider chưa được cấu hình hoặc đang gặp lỗi.",
+            "answer": "ChÆ°a thá»ƒ táº¡o cÃ¢u tráº£ lá»i vÃ¬ LLM provider chÆ°a Ä‘Æ°á»£c cáº¥u hÃ¬nh hoáº·c Ä‘ang gáº·p lá»—i.",
             "status": "provider_error",
             "citations": [],
         }
     status, answer, citations = verify_citations(generated, evidence)
+    if contains_insufficient_evidence(generated.answer):
+        return {**base, "answer": generated.answer, "status": "insufficient_evidence", "citations": []}
     return {**base, "answer": answer, "status": status, "citations": citations}
+

@@ -85,3 +85,18 @@ def test_ask_endpoint_does_not_crash_without_api_key(monkeypatch):
     response = TestClient(app).post("/ask", json={"query": "Quyền nghỉ phép?", "k": 5})
     assert response.status_code == 200
     assert response.json()["status"] == "provider_error"
+class InsufficientProvider:
+    def generate(self, query, context):
+        return GenerationResult(
+            "Chưa đủ căn cứ từ dữ liệu hiện có để kết luận.", ["doc-1"]
+        )
+
+
+def test_insufficient_evidence_answer_is_not_verified(monkeypatch):
+    items = evidence()
+    monkeypatch.setattr("app.answering.get_hybrid_retriever", lambda settings, domain: fake_retriever(items))
+    result = answer_question(
+        "Quyền nghỉ phép?", 5, SimpleNamespace(labor_domain="labor"), InsufficientProvider()
+    )
+    assert result["status"] == "insufficient_evidence"
+    assert result["citations"] == []

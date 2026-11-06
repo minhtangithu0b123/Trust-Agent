@@ -8,6 +8,8 @@ from .answering import answer_question
 from .config import get_settings
 from .domains import CorpusNotFoundError, UnknownDomainError
 from .retrieval import get_hybrid_retriever
+from .router import run_router
+from .query_normalization import clean_query
 from .vectorstore import get_vectorstore, ingest_domain, ingest_labor, search_domain, search_labor
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -22,6 +24,10 @@ class IngestRequest(BaseModel):
 class SearchRequest(BaseModel):
     query: str = Field(min_length=2)
     k: int = Field(default=5, ge=1, le=20)
+
+
+def clean_request(request: SearchRequest) -> SearchRequest:
+    return request.model_copy(update={"query": clean_query(request.query)})
 
 
 def citation(metadata: dict[str, Any]) -> dict[str, Any]:
@@ -186,4 +192,12 @@ def domain_ask(domain: str, request: SearchRequest) -> dict[str, Any]:
         return answer_question(request.query, request.k, settings, domain=config.name)
     except Exception as exc:
         logger.exception("Domain ask failed: %s", config.name)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.post("/router/ask")
+def router_ask(request: SearchRequest) -> dict[str, Any]:
+    try:
+        return run_router(request.query, request.k)
+    except Exception as exc:
+        logger.exception("Router ask failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc

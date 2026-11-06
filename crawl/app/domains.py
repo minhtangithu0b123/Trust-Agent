@@ -39,6 +39,7 @@ DOMAIN_CONFIGS: dict[str, DomainConfig] = {
 }
 
 
+
 class UnknownDomainError(ValueError):
     pass
 
