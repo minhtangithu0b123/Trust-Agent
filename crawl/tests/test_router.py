@@ -1,4 +1,4 @@
-from types import SimpleNamespace
+﻿from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
@@ -21,23 +21,23 @@ def test_multi_domain_routing_and_reducer_keep_parallel_outputs(monkeypatch):
     monkeypatch.setattr(router, "get_settings", settings_without_llm)
     calls = []
 
-    def fake_answer(query, k, settings, domain=None):
-        calls.append(domain)
-        return {
-            "domain": domain,
-            "answer": f"Answer for {domain}",
-            "status": "verified",
-            "citations": [{"document_id": "shared-doc", "dieu": "Điều 1"}],
-        }
+    def fake_agent(domain):
+        def run(query, k):
+            calls.append(domain)
+            return {
+                "domain": domain,
+                "answer": f"Answer for {domain}",
+                "status": "verified",
+                "citations": [{"document_id": "shared-doc", "dieu": "Điều 1"}],
+            }
+        return run
 
-    monkeypatch.setattr(router, "answer_question", fake_answer)
+    monkeypatch.setattr(router, "run_traffic_agent", fake_agent("traffic"))
+    monkeypatch.setattr(router, "run_labor_agent", fake_agent("labor"))
+    monkeypatch.setattr(router, "run_accounting_agent", fake_agent("accounting"))
     result = router.run_router("quy định về giao thông, lao động và thuế", 5)
-    assert {item["domain"] for item in result["classifications"]} == {
-        "traffic", "labor", "accounting"
-    }
-    assert {item["domain"] for item in result["results"]} == {
-        "traffic", "labor", "accounting"
-    }
+    assert {item["domain"] for item in result["classifications"]} == {"traffic", "labor", "accounting"}
+    assert {item["domain"] for item in result["results"]} == {"traffic", "labor", "accounting"}
     assert set(calls) == {"traffic", "labor", "accounting"}
     assert result["status"] == "verified"
     assert len(result["citations"]) == 1
@@ -45,7 +45,8 @@ def test_multi_domain_routing_and_reducer_keep_parallel_outputs(monkeypatch):
 
 def test_ambiguous_query_needs_clarification(monkeypatch):
     monkeypatch.setattr(router, "get_settings", settings_without_llm)
-    monkeypatch.setattr(router, "answer_question", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("must not run")))
+    for name in ("run_traffic_agent", "run_labor_agent", "run_accounting_agent"):
+        monkeypatch.setattr(router, name, lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("must not run")))
     result = router.run_router("Tôi muốn hỏi về quy định pháp luật", 5)
     assert result["status"] == "needs_clarification"
     assert result["results"] == []
@@ -67,13 +68,7 @@ def test_router_ask_endpoint(monkeypatch):
     expected = {
         "query": "Mức phạt giao thông?",
         "classifications": [{"domain": "traffic", "query": "Mức phạt giao thông?"}],
-        "results": [{
-            "domain": "traffic",
-            "query": "Mức phạt giao thông?",
-            "answer": "Theo evidence...",
-            "status": "verified",
-            "citations": [{"document_id": "traffic-1"}],
-        }],
+        "results": [{"domain": "traffic", "query": "Mức phạt giao thông?", "answer": "Theo evidence...", "status": "verified", "citations": [{"document_id": "traffic-1"}]}],
         "answer": "Theo evidence...",
         "citations": [{"document_id": "traffic-1"}],
         "status": "verified",
@@ -83,15 +78,16 @@ def test_router_ask_endpoint(monkeypatch):
     assert response.status_code == 200
     assert response.json() == expected
 
-def test_expanded_query_is_sent_to_traffic_branch(monkeypatch):
+
+def test_expanded_query_is_sent_to_traffic_agent(monkeypatch):
     monkeypatch.setattr(router, "get_settings", settings_without_llm)
     captured = []
 
-    def fake_answer(query, k, settings, domain=None):
-        captured.append((domain, query))
-        return {"domain": domain, "answer": "ok", "status": "verified", "citations": []}
+    def fake_traffic(query, k):
+        captured.append(("traffic", query))
+        return {"domain": "traffic", "answer": "ok", "status": "verified", "citations": []}
 
-    monkeypatch.setattr(router, "answer_question", fake_answer)
+    monkeypatch.setattr(router, "run_traffic_agent", fake_traffic)
     result = router.run_router("muc phat nong do con", 5)
     assert result["classifications"][0]["domain"] == "traffic"
     assert "nồng độ cồn" in result["classifications"][0]["query"]

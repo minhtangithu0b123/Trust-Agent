@@ -7,7 +7,10 @@ from pydantic import BaseModel, Field
 from langgraph.constants import Send
 from langgraph.graph import END, START, StateGraph
 
-from .answering import INSUFFICIENT_EVIDENCE, answer_question
+from .answering import INSUFFICIENT_EVIDENCE
+from .agents.traffic_agent import run_traffic_agent
+from .agents.labor_agent import run_labor_agent
+from .agents.accounting_agent import run_accounting_agent
 from .config import Settings, get_settings
 from .query_normalization import clean_query, expand_query_for_retrieval, normalize_for_routing
 
@@ -207,15 +210,19 @@ def route_to_agents(state: RouterState) -> list[Send] | str:
     return sends or END
 
 
-def _run_agent(state: RouterState, public_domain: str) -> dict[str, Any]:
+def _run_agent(
+    state: RouterState,
+    public_domain: str,
+    agent_runner: Any,
+) -> dict[str, Any]:
     classification = state.get("classification", {})
     query = clean_query(state.get("query") or classification.get("query", ""))
     k = state.get("k", 5)
     try:
-        result = answer_question(query, k, get_settings(), domain=public_domain)
+        result = agent_runner(query, k)
         output = AgentOutput(
             domain=public_domain,
-            query=query,
+            query=clean_query(str(result.get("query", query))),
             answer=str(result.get("answer", INSUFFICIENT_EVIDENCE)),
             status=str(result.get("status", "insufficient_evidence")),
             citations=list(result.get("citations", [])),
@@ -225,23 +232,20 @@ def _run_agent(state: RouterState, public_domain: str) -> dict[str, Any]:
         output = AgentOutput(
             domain=public_domain,
             query=query,
-            answer="Ch\u01b0a th\u1ec3 x\u1eed l\u00fd nh\u00e1nh ph\u00e1p lu\u1eadt n\u00e0y.",
+            answer="Chưa thể xử lý nhánh pháp luật này.",
             status="provider_error",
             citations=[],
         )
     return {"results": [output.model_dump()]}
 
-
 def query_traffic(state: RouterState) -> dict[str, Any]:
-    return _run_agent(state, "traffic")
-
+    return _run_agent(state, "traffic", run_traffic_agent)
 
 def query_labor(state: RouterState) -> dict[str, Any]:
-    return _run_agent(state, "labor")
-
+    return _run_agent(state, "labor", run_labor_agent)
 
 def query_accounting(state: RouterState) -> dict[str, Any]:
-    return _run_agent(state, "accounting")
+    return _run_agent(state, "accounting", run_accounting_agent)
 
 
 def _deduplicate_citations(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -319,4 +323,6 @@ def run_router(query: str, k: int = 5) -> dict[str, Any]:
         "citations": output.get("final_citations", []),
         "status": output.get("status", "insufficient_evidence"),
     }
+
+
 

@@ -1,10 +1,13 @@
-import logging
+﻿import logging
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from .answering import answer_question
+from .agents.traffic_agent import run_traffic_agent
+from .agents.labor_agent import run_labor_agent
+from .agents.accounting_agent import run_accounting_agent
 from .config import get_settings
 from .domains import CorpusNotFoundError, UnknownDomainError
 from .retrieval import get_hybrid_retriever
@@ -200,4 +203,30 @@ def router_ask(request: SearchRequest) -> dict[str, Any]:
         return run_router(request.query, request.k)
     except Exception as exc:
         logger.exception("Router ask failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+@app.post("/agents/traffic/ask")
+def traffic_agent_ask(request: SearchRequest) -> dict[str, Any]:
+    try:
+        cleaned = clean_request(request)
+        return run_traffic_agent(cleaned.query, cleaned.k)
+    except Exception as exc:
+        logger.exception("Traffic agent ask failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+@app.post("/agents/labor/ask")
+def labor_agent_ask(request: SearchRequest) -> dict[str, Any]:
+    try:
+        cleaned = clean_request(request)
+        return run_labor_agent(cleaned.query, cleaned.k)
+    except Exception as exc:
+        logger.exception("Labor agent ask failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/agents/accounting/ask")
+def accounting_agent_ask(request: SearchRequest) -> dict[str, Any]:
+    try:
+        cleaned = clean_request(request)
+        return run_accounting_agent(cleaned.query, cleaned.k)
+    except Exception as exc:
+        logger.exception("Accounting agent ask failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
