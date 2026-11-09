@@ -14,7 +14,7 @@ from .retrieval import get_hybrid_retriever
 from .router import run_router
 from .query_normalization import clean_query
 from .vectorstore import get_vectorstore, ingest_domain, ingest_labor, search_domain, search_labor
-from .provenance import create_receipt, receipt_db
+from .provenance import canonical_json, create_receipt, merkle_proof, receipt_db, verify_merkle_proof
 from .contributions import ContributionInput, list_contributions, review_contribution, submit_contribution
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -280,21 +280,41 @@ def paid_traffic_agent_ask(request: SearchRequest) -> dict[str, Any]:
 
 @app.get("/provenance/{receipt_id}")
 def get_provenance(receipt_id: str) -> dict[str, Any]:
+    import hashlib
     import sqlite3
-    from pathlib import Path
 
     path = receipt_db()
     if not path.exists():
         raise HTTPException(status_code=404, detail="Receipt not found")
     with sqlite3.connect(path) as connection:
         row = connection.execute(
-            "SELECT payload, leaf_hash, batch_root FROM receipts WHERE receipt_id = ?", (receipt_id,)
+            "SELECT r.payload, r.leaf_hash, r.batch_root, b.tx_hash, b.chain_id, b.status "
+            "FROM receipts r LEFT JOIN batches b ON b.root = r.batch_root WHERE r.receipt_id = ?",
+            (receipt_id,),
         ).fetchone()
     if row is None:
         raise HTTPException(status_code=404, detail="Receipt not found")
     import json
 
-    return {"receipt": json.loads(row[0]), "leaf_hash": row[1], "batch_root": row[2]}
+    receipt = json.loads(row[0])
+    proof = []
+    if row[2]:
+        with sqlite3.connect(path) as connection:
+            leaves = [item[0] for item in connection.execute(
+                "SELECT leaf_hash FROM receipts WHERE batch_root = ? ORDER BY created_at, receipt_id", (row[2],)
+            )]
+            index = next(i for i, leaf in enumerate(leaves) if leaf == row[1])
+        proof = merkle_proof(leaves, index)
+    verified = verify_merkle_proof(row[1], proof, row[2]) if row[2] else False
+    verified = verified and hashlib.sha256(canonical_json(receipt)).hexdigest() == row[1]
+    return {
+        "receipt": receipt,
+        "leaf_hash": row[1],
+        "batch_root": row[2],
+        "proof": proof,
+        "proof_valid": verified,
+        "anchor": {"status": row[5], "tx_hash": row[3], "chain_id": row[4]},
+    }
 
 
 @app.post("/contributions", status_code=202)

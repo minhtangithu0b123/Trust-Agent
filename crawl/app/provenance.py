@@ -43,6 +43,7 @@ def create_receipt(answer: str, citations: list[dict[str, Any]], index_version: 
     path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(path) as connection:
         connection.execute("CREATE TABLE IF NOT EXISTS receipts (receipt_id TEXT PRIMARY KEY, created_at TEXT NOT NULL, payload TEXT NOT NULL, leaf_hash TEXT NOT NULL, batch_root TEXT)")
+        _ensure_batches(connection)
         connection.execute(
             "INSERT INTO receipts (receipt_id, created_at, payload, leaf_hash) VALUES (?, ?, ?, ?)",
             (receipt_id, payload["created_at"], canonical_json(payload).decode("utf-8"), leaf_hash),
@@ -59,6 +60,30 @@ def merkle_root(leaves: list[str]) -> str:
             level.append(level[-1])
         level = [hashlib.sha256(level[i] + level[i + 1]).digest() for i in range(0, len(level), 2)]
     return level[0].hex()
+
+
+def merkle_proof(leaves: list[str], leaf_index: int) -> list[dict[str, str]]:
+    if not 0 <= leaf_index < len(leaves):
+        raise IndexError("Leaf index is outside the batch")
+    proof: list[dict[str, str]] = []
+    level = [bytes.fromhex(item) for item in leaves]
+    index = leaf_index
+    while len(level) > 1:
+        if len(level) % 2:
+            level.append(level[-1])
+        sibling_index = index - 1 if index % 2 else index + 1
+        proof.append({"hash": level[sibling_index].hex(), "position": "left" if sibling_index < index else "right"})
+        level = [hashlib.sha256(level[i] + level[i + 1]).digest() for i in range(0, len(level), 2)]
+        index //= 2
+    return proof
+
+
+def verify_merkle_proof(leaf_hash: str, proof: list[dict[str, str]], expected_root: str) -> bool:
+    current = bytes.fromhex(leaf_hash)
+    for item in proof:
+        sibling = bytes.fromhex(item["hash"])
+        current = hashlib.sha256(sibling + current if item["position"] == "left" else current + sibling).digest()
+    return current.hex() == expected_root
 
 
 def _ensure_batches(connection: sqlite3.Connection) -> None:
