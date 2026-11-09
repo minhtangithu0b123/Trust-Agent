@@ -5,6 +5,7 @@ __pycache__/
 env/
 venv/
 .env
+.env.payer
 .DS_Store
 data/chroma/
 .pytest_cache/
