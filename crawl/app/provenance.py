@@ -61,15 +61,39 @@ def merkle_root(leaves: list[str]) -> str:
     return level[0].hex()
 
 
+def _ensure_batches(connection: sqlite3.Connection) -> None:
+    connection.execute("CREATE TABLE IF NOT EXISTS batches (root TEXT PRIMARY KEY, count INTEGER NOT NULL, status TEXT NOT NULL, tx_hash TEXT, chain_id INTEGER, created_at TEXT NOT NULL)")
+
+
 def prepare_batch() -> dict[str, Any] | None:
     path = receipt_db()
     if not path.exists():
         return None
     with sqlite3.connect(path) as connection:
         connection.row_factory = sqlite3.Row
+        _ensure_batches(connection)
         rows = connection.execute("SELECT receipt_id, leaf_hash FROM receipts WHERE batch_root IS NULL ORDER BY created_at, receipt_id").fetchall()
         if not rows:
             return None
         root = merkle_root([row["leaf_hash"] for row in rows])
         connection.executemany("UPDATE receipts SET batch_root = ? WHERE receipt_id = ?", [(root, row["receipt_id"]) for row in rows])
+        connection.execute("INSERT INTO batches (root, count, status, created_at) VALUES (?, ?, 'staged', ?)", (root, len(rows), datetime.now(UTC).isoformat()))
     return {"root": root, "count": len(rows), "receipt_ids": [row["receipt_id"] for row in rows]}
+
+
+def next_batch() -> dict[str, Any] | None:
+    path = receipt_db()
+    if not path.exists():
+        return None
+    with sqlite3.connect(path) as connection:
+        _ensure_batches(connection)
+        row = connection.execute("SELECT root, count FROM batches WHERE status = 'staged' ORDER BY created_at LIMIT 1").fetchone()
+    return {"root": row[0], "count": row[1]} if row else None
+
+
+def mark_batch_anchored(root: str, tx_hash: str, chain_id: int) -> None:
+    with sqlite3.connect(receipt_db()) as connection:
+        _ensure_batches(connection)
+        cursor = connection.execute("UPDATE batches SET status = 'anchored', tx_hash = ?, chain_id = ? WHERE root = ? AND status = 'staged'", (tx_hash, chain_id, root))
+        if cursor.rowcount != 1:
+            raise ValueError("Batch is not staged or was already anchored")

@@ -7,9 +7,11 @@
 - Do not enable production payments until the recipient wallet, facilitator, price, replay/idempotency behavior, and paid-request failure/refund policy are reviewed.
 - Paid traffic answers are committed to a local SQLite receipt ledger without storing the question. Citation receipts include SHA-256 hashes of retrieved text, an index-version label, and an answer hash.
 - Run `python scripts/prepare_provenance_batch.py` from `crawl/` to create a deterministic Merkle-root manifest. The manifest is not on-chain until a separately reviewed anchoring transaction is submitted.
+- `contracts/BatchAnchor.sol` is the minimal owner-only root registry. Deploy it yourself to the chosen chain, then set `ANCHOR_*` and run `python scripts/anchor_provenance.py`; this submits staged roots and records the transaction hash and chain ID locally. Install `pip install -e '.[blockchain]'` for the EVM scripts.
 - `app/agent-registration.example.json` is a template, not a live registration. Replace its endpoint and publish it only after verifying domain ownership; `x402Support` stays false until the paid endpoint is live.
 - `POST /contributions` accepts a source/correction for human review; reviewers use `X-Review-Token` on `/admin/contributions` and `/admin/contributions/{id}/review`. Approved contributions earn non-transferable 10-point credits. Configure `REWARD_ADMIN_TOKEN` before enabling reviewer operations.
-- Chain registration, transaction submission, actual anchoring, a reviewer UI, and token/USDC issuance still require deployment credentials and operational review. Keep query text and legal text off-chain.
+- `python scripts/register_erc8004.py` calls `register(agentURI)` on the configured Identity Registry, updates the local registration JSON, and prints the transaction. The HTTPS metadata must be deployed at that URI before registration and redeployed after the script adds the registration coordinates.
+- A reviewer UI and token/USDC issuance still require operational and legal review. Keep query text and legal text off-chain. Private keys belong in a local ignored `.env`, never in committed files.
 
 ## 1. Mục tiêu
 
