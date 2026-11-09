@@ -20,6 +20,14 @@ class Settings(BaseSettings):
     api_port: int = 8000
     openai_api_key: str | None = None
     openai_model: str = "gpt-4o-mini"
+    x402_enabled: bool = False
+    x402_price_usd: str = "0.01"
+    x402_network: str = "eip155:84532"
+    x402_pay_to: str = ""
+    x402_facilitator_url: str = ""
+    index_version: str = "development"
+    provenance_db_path: str = "data/provenance.sqlite3"
+    reward_admin_token: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -34,6 +42,10 @@ class Settings(BaseSettings):
     @property
     def chroma_path(self) -> Path:
         return self.resolve_path(self.chroma_persist_dir)
+
+    @property
+    def provenance_path(self) -> Path:
+        return self.resolve_path(self.provenance_db_path)
 
     def domain_config(self, domain: str) -> DomainConfig:
         config = get_domain_config(domain)

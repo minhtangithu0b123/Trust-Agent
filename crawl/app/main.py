@@ -1,7 +1,7 @@
 ﻿import logging
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from .answering import answer_question
@@ -14,10 +14,51 @@ from .retrieval import get_hybrid_retriever
 from .router import run_router
 from .query_normalization import clean_query
 from .vectorstore import get_vectorstore, ingest_domain, ingest_labor, search_domain, search_labor
+from .provenance import create_receipt, receipt_db
+from .contributions import ContributionInput, list_contributions, review_contribution, submit_contribution
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger(__name__)
 app = FastAPI(title="Trust Agent Multi-Domain RAG", version="0.2.0")
+
+
+def configure_x402() -> None:
+    settings = get_settings()
+    if not settings.x402_enabled:
+        return
+    if not settings.x402_pay_to or not settings.x402_facilitator_url:
+        raise RuntimeError("X402_PAY_TO and X402_FACILITATOR_URL are required when X402_ENABLED=true")
+    try:
+        from x402.http import FacilitatorConfig, HTTPFacilitatorClient, PaymentOption
+        from x402.http.middleware.fastapi import PaymentMiddlewareASGI
+        from x402.http.types import RouteConfig
+        from x402.mechanisms.evm.exact import ExactEvmServerScheme
+        from x402.server import x402ResourceServer
+    except ImportError as exc:
+        raise RuntimeError("Install the payments extra: pip install -e '.[payments]'") from exc
+
+    server = x402ResourceServer(
+        HTTPFacilitatorClient(FacilitatorConfig(url=settings.x402_facilitator_url))
+    )
+    server.register(settings.x402_network, ExactEvmServerScheme())
+    app.add_middleware(
+        PaymentMiddlewareASGI,
+        routes={
+            "POST /paid/traffic/ask": RouteConfig(
+                accepts=[PaymentOption(
+                    scheme="exact",
+                    price=f"${settings.x402_price_usd}",
+                    network=settings.x402_network,
+                    pay_to=settings.x402_pay_to,
+                )],
+                description="Vietnamese traffic-law answer with citations",
+            )
+        },
+        server=server,
+    )
+
+
+configure_x402()
 
 
 class IngestRequest(BaseModel):
@@ -27,6 +68,10 @@ class IngestRequest(BaseModel):
 class SearchRequest(BaseModel):
     query: str = Field(min_length=2)
     k: int = Field(default=5, ge=1, le=20)
+
+
+class ContributionReview(BaseModel):
+    approve: bool
 
 
 def clean_request(request: SearchRequest) -> SearchRequest:
@@ -212,6 +257,63 @@ def traffic_agent_ask(request: SearchRequest) -> dict[str, Any]:
     except Exception as exc:
         logger.exception("Traffic agent ask failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/paid/traffic/ask")
+def paid_traffic_agent_ask(request: SearchRequest) -> dict[str, Any]:
+    if not get_settings().x402_enabled:
+        raise HTTPException(status_code=503, detail="Paid API is not enabled")
+    cleaned = clean_request(request)
+    result = run_traffic_agent(cleaned.query, cleaned.k)
+    receipt = create_receipt(result["answer"], result.get("citations", []), get_settings().index_version)
+    result["provenance"] = {
+        "receipt_id": receipt["receipt_id"],
+        "receipt_hash": receipt["leaf_hash"],
+        "index_version": receipt["index_version"],
+    }
+    result["payment"] = {
+        "scheme": "x402",
+        "network": get_settings().x402_network,
+    }
+    return result
+
+
+@app.get("/provenance/{receipt_id}")
+def get_provenance(receipt_id: str) -> dict[str, Any]:
+    import sqlite3
+    from pathlib import Path
+
+    path = receipt_db()
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Receipt not found")
+    with sqlite3.connect(path) as connection:
+        row = connection.execute(
+            "SELECT payload, leaf_hash, batch_root FROM receipts WHERE receipt_id = ?", (receipt_id,)
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+    import json
+
+    return {"receipt": json.loads(row[0]), "leaf_hash": row[1], "batch_root": row[2]}
+
+
+@app.post("/contributions", status_code=202)
+def create_contribution(request: ContributionInput) -> dict[str, str]:
+    return submit_contribution(request)
+
+
+@app.get("/admin/contributions")
+def admin_contributions(x_review_token: str | None = Header(default=None, alias="X-Review-Token")) -> list[dict]:
+    return list_contributions(x_review_token)
+
+
+@app.post("/admin/contributions/{contribution_id}/review")
+def admin_review_contribution(
+    contribution_id: str,
+    request: ContributionReview,
+    x_review_token: str | None = Header(default=None, alias="X-Review-Token"),
+) -> dict:
+    return review_contribution(contribution_id, request.approve, x_review_token)
 @app.post("/agents/labor/ask")
 def labor_agent_ask(request: SearchRequest) -> dict[str, Any]:
     try:

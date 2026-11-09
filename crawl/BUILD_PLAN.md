@@ -1,5 +1,16 @@
 # Kế hoạch build project Legal Data Crawler & Cleaner
 
+## Product integrations: x402 and ERC-8004
+
+- The paid traffic endpoint is `POST /paid/traffic/ask`; it returns 503 unless x402 is explicitly enabled.
+- Install the optional SDK with `pip install -e '.[payments]'`. Configure `X402_ENABLED`, `X402_NETWORK`, `X402_PAY_TO`, and `X402_FACILITATOR_URL`. The sample network is Base Sepolia (`eip155:84532`); use test funds and a test facilitator for development.
+- Do not enable production payments until the recipient wallet, facilitator, price, replay/idempotency behavior, and paid-request failure/refund policy are reviewed.
+- Paid traffic answers are committed to a local SQLite receipt ledger without storing the question. Citation receipts include SHA-256 hashes of retrieved text, an index-version label, and an answer hash.
+- Run `python scripts/prepare_provenance_batch.py` from `crawl/` to create a deterministic Merkle-root manifest. The manifest is not on-chain until a separately reviewed anchoring transaction is submitted.
+- `app/agent-registration.example.json` is a template, not a live registration. Replace its endpoint and publish it only after verifying domain ownership; `x402Support` stays false until the paid endpoint is live.
+- `POST /contributions` accepts a source/correction for human review; reviewers use `X-Review-Token` on `/admin/contributions` and `/admin/contributions/{id}/review`. Approved contributions earn non-transferable 10-point credits. Configure `REWARD_ADMIN_TOKEN` before enabling reviewer operations.
+- Chain registration, transaction submission, actual anchoring, a reviewer UI, and token/USDC issuance still require deployment credentials and operational review. Keep query text and legal text off-chain.
+
 ## 1. Mục tiêu
 
 Xây dựng một pipeline Python có thể:

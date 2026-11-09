@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import logging
+import hashlib
 from dataclasses import dataclass
 from typing import Any, Callable, Literal, TypedDict
 
@@ -211,7 +212,14 @@ def run_domain_agent(
         )
         cited_ids = output.get("cited_document_ids", [])
         evidence_by_id = {item["document_id"]: item for item in output.get("evidence", [])}
-        citations = [evidence_by_id[doc_id]["citation"] for doc_id in cited_ids if doc_id in evidence_by_id]
+        citations = []
+        for doc_id in cited_ids:
+            evidence_item = evidence_by_id.get(doc_id)
+            if evidence_item is None:
+                continue
+            citation = dict(evidence_item["citation"])
+            citation["text_sha256"] = hashlib.sha256(evidence_item["text"].encode("utf-8")).hexdigest()
+            citations.append(citation)
         if output.get("status") != "verified":
             citations = []
         return {"query": query, "answer": output.get("answer", spec.insufficient_answer), "status": output.get("status", "insufficient_evidence"), "citations": citations}
