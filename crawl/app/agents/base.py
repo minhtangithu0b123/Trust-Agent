@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from ..answering import citation_from_metadata
 from ..config import Settings
+from ..llm import ModelConfigurationError, build_structured_model
 from ..vectorstore import get_vectorstore
 
 logger = logging.getLogger(__name__)
@@ -95,17 +96,10 @@ def get_domain_document(settings: Settings, domain: str, document_id: str) -> di
 
 
 def build_openai_model(settings: Settings):
-    if not getattr(settings, "openai_api_key", None):
-        raise AgentProviderError("OPENAI_API_KEY is not configured")
     try:
-        from langchain_openai import ChatOpenAI
-    except ImportError as exc:
-        raise AgentProviderError("langchain-openai is not installed") from exc
-    return ChatOpenAI(
-        model=settings.openai_model,
-        api_key=settings.openai_api_key,
-        temperature=0,
-    ).with_structured_output(ToolDecision)
+        return build_structured_model(settings, ToolDecision)
+    except ModelConfigurationError as exc:
+        raise AgentProviderError(str(exc)) from exc
 
 
 def _evidence_context(state: DomainAgentState) -> str:

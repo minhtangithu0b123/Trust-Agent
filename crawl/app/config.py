@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     embedding_device: str = "cpu"
     api_host: str = "127.0.0.1"
     api_port: int = 8000
+    llm_provider: str = "gemini"
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-3.5-flash-lite"
     openai_api_key: str | None = None
     openai_model: str = "gpt-4o-mini"
     x402_enabled: bool = False

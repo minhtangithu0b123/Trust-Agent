@@ -6,6 +6,7 @@ from langchain_core.documents import Document
 
 from .config import Settings
 from .domains import DomainConfig, get_domain_config
+from .llm import ModelConfigurationError, build_structured_model
 from .retrieval import HybridResult, get_hybrid_retriever
 
 logger = logging.getLogger(__name__)
@@ -59,31 +60,27 @@ def build_legal_context(evidence: list[HybridResult], domain_config: DomainConfi
     return "\n\n--- EVIDENCE ---\n\n".join(blocks)
 
 
-class OpenAIProvider:
+class StructuredLLMProvider:
     def __init__(self, settings: Settings, domain_config: DomainConfig):
-        if not settings.openai_api_key:
-            raise ProviderError("OPENAI_API_KEY is not configured")
-        try:
-            from langchain_openai import ChatOpenAI
-        except ImportError as exc:
-            raise ProviderError("langchain-openai is not installed") from exc
         from pydantic import BaseModel, Field
 
         class AnswerPayload(BaseModel):
             answer: str = Field(description="Vietnamese answer grounded in evidence")
             cited_document_ids: list[str] = Field(default_factory=list)
 
+        self._answer_payload = AnswerPayload
         self._system_prompt = SYSTEM_PROMPT.format(prompt_name=domain_config.prompt_name)
-        self._model = ChatOpenAI(
-            model=settings.openai_model,
-            api_key=settings.openai_api_key,
-            temperature=0,
-        ).with_structured_output(AnswerPayload)
+        try:
+            self._model = build_structured_model(settings, AnswerPayload)
+        except ModelConfigurationError as exc:
+            raise ProviderError(str(exc)) from exc
 
     def generate(self, query: str, context: str) -> GenerationResult:
         prompt = f"{self._system_prompt}\n\nUser query:\n{query}\n\nEvidence:\n{context}\n\nReturn only the structured answer and cited_document_ids."
         try:
             payload = self._model.invoke(prompt)
+            if not isinstance(payload, self._answer_payload):
+                payload = self._answer_payload.model_validate(payload)
             return GenerationResult(
                 answer=str(payload.answer).strip(),
                 cited_document_ids=list(payload.cited_document_ids),
@@ -93,7 +90,7 @@ class OpenAIProvider:
 
 
 def get_llm_provider(settings: Settings, domain_config: DomainConfig) -> LLMProvider:
-    return OpenAIProvider(settings, domain_config)
+    return StructuredLLMProvider(settings, domain_config)
 
 
 def citation_from_metadata(metadata: dict[str, Any]) -> dict[str, Any]:

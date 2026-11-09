@@ -13,6 +13,7 @@ from .agents.labor_agent import run_labor_agent
 from .agents.accounting_agent import run_accounting_agent
 from .config import Settings, get_settings
 from .query_normalization import clean_query, expand_query_for_retrieval, normalize_for_routing
+from .llm import build_structured_model
 
 logger = logging.getLogger(__name__)
 
@@ -110,16 +111,12 @@ def _keyword_classify(
 
 def _classify_with_llm(query: str, settings: Settings) -> list[dict[str, str]]:
     """Classify using the original cleaned Vietnamese query, never routing_query."""
-    if not getattr(settings, "openai_api_key", None):
+    provider = str(getattr(settings, "llm_provider", "openai")).strip().casefold()
+    key_name = "gemini_api_key" if provider == "gemini" else "openai_api_key"
+    if not getattr(settings, key_name, None):
         return []
     try:
-        from langchain_openai import ChatOpenAI
-
-        model = ChatOpenAI(
-            model=settings.openai_model,
-            api_key=settings.openai_api_key,
-            temperature=0,
-        ).with_structured_output(ClassificationPayload)
+        model = build_structured_model(settings, ClassificationPayload)
         prompt = (
             "B\u1ea1n l\u00e0 b\u1ed9 ph\u00e2n lo\u1ea1i truy v\u1ea5n ph\u00e1p lu\u1eadt Vi\u1ec7t Nam. "
             "Ch\u1ec9 ch\u1ecdn domain trong danh s\u00e1ch: traffic, labor, accounting. "
