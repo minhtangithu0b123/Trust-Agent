@@ -21,7 +21,9 @@ ABI = [
 def main() -> None:
     load_dotenv(".env")
     web3 = Web3(Web3.HTTPProvider(os.environ["ERC8004_RPC_URL"]))
-    private_key = os.environ["ERC8004_PRIVATE_KEY"]
+    private_key = os.getenv("ERC8004_PRIVATE_KEY") or os.getenv("ANCHOR_PRIVATE_KEY")
+    if not private_key:
+        raise RuntimeError("Set ERC8004_PRIVATE_KEY or ANCHOR_PRIVATE_KEY in crawl/.env")
     registry_address = Web3.to_checksum_address(os.environ["ERC8004_REGISTRY_ADDRESS"])
     chain_id = int(os.environ["ERC8004_CHAIN_ID"])
     agent_uri = os.environ["ERC8004_AGENT_URI"]
