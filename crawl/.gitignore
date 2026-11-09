@@ -8,6 +8,7 @@ venv/
 .env.payer
 .DS_Store
 data/chroma/
+data/provenance.sqlite3
 .pytest_cache/
 logs/
 *.egg-info/
