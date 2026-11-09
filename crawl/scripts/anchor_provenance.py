@@ -2,6 +2,7 @@
 
 import os
 
+from dotenv import load_dotenv
 from web3 import Web3
 
 from app.provenance import next_batch
@@ -12,6 +13,7 @@ ABI = [
 
 
 def main() -> None:
+    load_dotenv(".env")
     rpc = os.environ["ANCHOR_RPC_URL"]
     private_key = os.environ["ANCHOR_PRIVATE_KEY"]
     contract_address = Web3.to_checksum_address(os.environ["ANCHOR_CONTRACT_ADDRESS"])

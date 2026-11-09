@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
 from web3 import Web3
 
 ABI = [
@@ -18,6 +19,7 @@ ABI = [
 
 
 def main() -> None:
+    load_dotenv(".env")
     web3 = Web3(Web3.HTTPProvider(os.environ["ERC8004_RPC_URL"]))
     private_key = os.environ["ERC8004_PRIVATE_KEY"]
     registry_address = Web3.to_checksum_address(os.environ["ERC8004_REGISTRY_ADDRESS"])

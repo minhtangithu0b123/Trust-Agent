@@ -28,6 +28,7 @@ AGENT_POLICY = """Bạn là ReAct Traffic Agent chuyên tra cứu pháp luật g
 Luôn gọi evidence trước khi trả lời và chỉ sử dụng công cụ traffic được cung cấp.
 Không dùng kiến thức bên ngoài evidence; không bịa số hiệu, Điều, Khoản, mức phạt, ngày hiệu lực hoặc citation.
 Có thể search nhiều lần hoặc lấy một document cụ thể nếu evidence chưa đủ.
+Nếu evidence đã có điều khoản xử phạt khớp trực tiếp với hành vi được hỏi, hãy trả lời ngay và trích dẫn đúng document_id; không search lặp lại cùng ý.
 Nếu không đủ căn cứ, phải trả đúng: "Chưa đủ căn cứ từ dữ liệu hiện có để kết luận."
 Phân biệt "Quy định pháp luật" và "Suy luận theo tình huống" nếu có suy luận.
 Chỉ dùng cited_document_ids xuất hiện trong evidence của lượt chạy này.
@@ -38,8 +39,29 @@ SPEC = DomainAgentSpec(TRAFFIC_DOMAIN, "Traffic Agent", AGENT_POLICY)
 def search_traffic_law(query: str, k: int = 5) -> list[dict[str, Any]]:
     settings = get_settings()
     original = clean_query(query)
-    expanded = expand_query_for_retrieval(original, normalize_for_routing(original), TRAFFIC_DOMAIN)
-    return search_domain_law(settings, TRAFFIC_DOMAIN, get_hybrid_retriever, expanded, k)
+    routing = normalize_for_routing(original)
+    expanded = expand_query_for_retrieval(original, routing, TRAFFIC_DOMAIN)
+    results = search_domain_law(settings, TRAFFIC_DOMAIN, get_hybrid_retriever, expanded, k)
+    if "vuot den do" not in routing:
+        return results
+
+    # The source corpus uses the formal phrase and article number, while users
+    # commonly ask with the colloquial phrase "vượt đèn đỏ".
+    legal_query = (
+        "Nghị định 168/2024 xe mô tô không chấp hành hiệu lệnh đèn tín hiệu "
+        "giao thông Điều 7 khoản 7"
+    )
+    targeted = search_domain_law(settings, TRAFFIC_DOMAIN, get_hybrid_retriever, legal_query, k)
+    merged: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in [*targeted, *results]:
+        document_id = item.get("document_id")
+        if document_id and document_id not in seen:
+            seen.add(document_id)
+            merged.append(item)
+        if len(merged) >= k:
+            break
+    return merged
 
 
 def get_traffic_document(document_id: str) -> dict[str, Any] | None:
