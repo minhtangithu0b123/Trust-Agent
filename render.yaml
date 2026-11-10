@@ -2,16 +2,12 @@ services:
   - type: web
     name: trust-agent-api
     runtime: docker
-    plan: 1c-2g
+    plan: free
     rootDir: crawl
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /domains/traffic/health
     autoDeploy: true
-    disk:
-      name: trust-agent-data
-      mountPath: /data
-      sizeGB: 1
     envVars:
       - key: LLM_PROVIDER
         value: gemini
@@ -32,6 +28,6 @@ services:
       - key: INDEX_VERSION
         value: traffic-v1
       - key: PROVENANCE_DB_PATH
-        value: /data/provenance.sqlite3
+        value: /tmp/provenance.sqlite3
       - key: REWARD_ADMIN_TOKEN
         generateValue: true
