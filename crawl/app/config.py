@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     index_version: str = "development"
     provenance_db_path: str = "data/provenance.sqlite3"
     reward_admin_token: str = ""
+    ingest_admin_token: str = ""
+    api_access_token: str = ""
+    require_api_key: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

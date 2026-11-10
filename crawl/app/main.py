@@ -1,9 +1,11 @@
+import hmac
 import json
 import logging
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from .answering import answer_question
@@ -63,6 +65,41 @@ def configure_x402() -> None:
 configure_x402()
 
 
+_QUERY_API_PATHS = {
+    "/ask",
+    "/search",
+    "/search/hybrid",
+    "/router/ask",
+    "/agents/traffic/ask",
+    "/agents/labor/ask",
+    "/agents/accounting/ask",
+}
+
+
+def requires_api_key(method: str, path: str) -> bool:
+    if method != "POST":
+        return False
+    if path in _QUERY_API_PATHS:
+        return True
+    if not path.startswith("/domains/"):
+        return False
+    return path.endswith(("/ask", "/search", "/search/hybrid"))
+
+
+@app.middleware("http")
+async def protect_query_api(request: Request, call_next):
+    settings = get_settings()
+    if not settings.require_api_key or not requires_api_key(request.method, request.url.path):
+        return await call_next(request)
+    expected = settings.api_access_token
+    if not expected:
+        return JSONResponse({"detail": "API access is not configured"}, status_code=503)
+    supplied = request.headers.get("X-API-Key", "")
+    if not hmac.compare_digest(supplied, expected):
+        return JSONResponse({"detail": "API key required"}, status_code=401)
+    return await call_next(request)
+
+
 class IngestRequest(BaseModel):
     force: bool = False
 
@@ -89,6 +126,25 @@ def public_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
     if result.get("effective_from") == "":
         result["effective_from"] = None
     return result
+
+
+def require_ingest_admin(token: str | None) -> None:
+    expected = get_settings().ingest_admin_token
+    if not expected:
+        raise HTTPException(status_code=503, detail="Ingestion API is disabled")
+    if not token or not hmac.compare_digest(token, expected):
+        raise HTTPException(status_code=401, detail="Ingestion authorization required")
+
+
+def collection_document_count(settings, config) -> int:
+    try:
+        import chromadb
+
+        client = chromadb.PersistentClient(path=str(settings.chroma_path))
+        return client.get_collection(name=config.collection_name).count()
+    except Exception as exc:
+        logger.warning("Health check could not read collection %s: %s", config.collection_name, exc)
+        return 0
 
 
 def domain_settings(domain: str):
@@ -125,10 +181,7 @@ def hybrid_response(settings, config, request: SearchRequest) -> dict[str, Any]:
 def health() -> dict[str, Any]:
     settings = get_settings()
     config = settings.domain_config(settings.labor_domain)
-    try:
-        count = get_vectorstore(settings, config.name)._collection.count()
-    except Exception:
-        count = 0
+    count = collection_document_count(settings, config)
     return {"status": "ok", "domain": config.name, "collection": config.collection_name, "document_count": count}
 
 
@@ -149,15 +202,16 @@ def agent_registration(request: Request) -> dict[str, Any]:
 @app.get("/domains/{domain}/health")
 def domain_health(domain: str) -> dict[str, Any]:
     settings, config = domain_settings(domain)
-    try:
-        count = get_vectorstore(settings, config.name)._collection.count()
-    except Exception:
-        count = 0
+    count = collection_document_count(settings, config)
     return {"status": "ok", "domain": config.name, "collection": config.collection_name, "document_count": count}
 
 
 @app.post("/ingest")
-def ingest(request: IngestRequest | None = None) -> dict[str, Any]:
+def ingest(
+    request: IngestRequest | None = None,
+    x_ingest_token: str | None = Header(default=None, alias="X-Ingest-Token"),
+) -> dict[str, Any]:
+    require_ingest_admin(x_ingest_token)
     try:
         result = ingest_labor(get_settings())
         return {"status": "ok", "domain": get_settings().labor_domain, **result.__dict__}
@@ -167,7 +221,12 @@ def ingest(request: IngestRequest | None = None) -> dict[str, Any]:
 
 
 @app.post("/domains/{domain}/ingest")
-def ingest_domain_endpoint(domain: str, request: IngestRequest | None = None) -> dict[str, Any]:
+def ingest_domain_endpoint(
+    domain: str,
+    request: IngestRequest | None = None,
+    x_ingest_token: str | None = Header(default=None, alias="X-Ingest-Token"),
+) -> dict[str, Any]:
+    require_ingest_admin(x_ingest_token)
     settings, config = domain_settings(domain)
     try:
         result = ingest_domain(settings, config.name)

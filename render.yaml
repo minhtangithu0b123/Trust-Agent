@@ -31,3 +31,9 @@ services:
         value: /tmp/provenance.sqlite3
       - key: REWARD_ADMIN_TOKEN
         generateValue: true
+      - key: INGEST_ADMIN_TOKEN
+        generateValue: true
+      - key: API_ACCESS_TOKEN
+        generateValue: true
+      - key: REQUIRE_API_KEY
+        value: "true"

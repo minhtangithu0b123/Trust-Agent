@@ -19,9 +19,13 @@ export async function POST(request: Request) {
 
   const apiUrl = process.env.TRUST_AGENT_API_URL ?? "http://127.0.0.1:8000";
   try {
+    const apiKey = process.env.API_ACCESS_TOKEN;
     const upstream = await fetch(`${apiUrl.replace(/\/$/, "")}/router/ask`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        ...(apiKey ? { "X-API-Key": apiKey } : {}),
+      },
       body: JSON.stringify({ query: payload.query.trim(), k: 5 }),
       cache: "no-store",
       signal: AbortSignal.timeout(90_000),
