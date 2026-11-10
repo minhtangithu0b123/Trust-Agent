@@ -1,7 +1,9 @@
-﻿import logging
+import json
+import logging
+from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from .answering import answer_question
@@ -128,6 +130,20 @@ def health() -> dict[str, Any]:
     except Exception:
         count = 0
     return {"status": "ok", "domain": config.name, "collection": config.collection_name, "document_count": count}
+
+
+@app.get("/agent-registration.json")
+def agent_registration(request: Request) -> dict[str, Any]:
+    """Serve ERC-8004 metadata from the same public host as the API."""
+    metadata_path = Path(__file__).with_name("agent-registration.example.json")
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    base_url = str(request.base_url).rstrip("/")
+    metadata["services"] = [
+        {"name": "web", "endpoint": f"{base_url}/docs"},
+        {"name": "x402", "endpoint": f"{base_url}/paid/traffic/ask", "version": "2"},
+    ]
+    metadata["x402Support"] = get_settings().x402_enabled
+    return metadata
 
 
 @app.get("/domains/{domain}/health")
