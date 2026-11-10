@@ -54,9 +54,9 @@ def build_labor_agent_graph(model: Any):
     return build_domain_agent_graph(SPEC, model, search_labor_law, get_labor_document)
 
 
-def run_labor_agent(query: str, k: int = 5, model: Any | None = None, max_steps: int = MAX_STEPS) -> dict[str, Any]:
+def run_labor_agent(query: str, k: int = 5, model: Any | None = None, max_steps: int = MAX_STEPS, sub_queries: list[str] | None = None) -> dict[str, Any]:
     settings = get_settings()
     cleaned_query = clean_query(query)
     return run_domain_agent(
-        cleaned_query, k, settings, SPEC, search_labor_law, get_labor_document, model=model, max_steps=max_steps
+        cleaned_query, k, settings, SPEC, search_labor_law, get_labor_document, model=model, max_steps=max_steps, sub_queries=sub_queries
     )

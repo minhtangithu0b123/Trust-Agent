@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -9,20 +9,22 @@ from .domains import DomainConfig, get_domain_config
 from .retrieval import HybridResult, get_hybrid_retriever
 
 logger = logging.getLogger(__name__)
-INSUFFICIENT_EVIDENCE = "ChÆ°a Ä‘á»§ cÄƒn cá»© tá»« dá»¯ liá»‡u hiá»‡n cÃ³ Ä‘á»ƒ káº¿t luáº­n."
+from .citation_guardrail import INSUFFICIENT_EVIDENCE
+
 
 def contains_insufficient_evidence(answer: str) -> bool:
     normalized = " ".join(str(answer).casefold().split()).rstrip(".")
     phrase = "chưa đủ căn cứ từ dữ liệu hiện có để kết luận"
     return phrase in normalized
 
-SYSTEM_PROMPT = """Báº¡n lÃ  {prompt_name} cá»§a Trust Agent.
 
-Chá»‰ tráº£ lá»i dá»±a trÃªn evidence Ä‘Æ°á»£c cung cáº¥p trong prompt. KhÃ´ng sá»­ dá»¥ng kiáº¿n thá»©c bÃªn ngoÃ i evidence. KhÃ´ng tá»± bá»‹a Äiá»u, Khoáº£n, tÃªn vÄƒn báº£n, sá»‘ hiá»‡u, má»©c tiá»n hoáº·c ngÃ y hiá»‡u lá»±c.
+SYSTEM_PROMPT = """Bạn là {prompt_name} của Trust Agent.
 
-Náº¿u evidence khÃ´ng Ä‘á»§ Ä‘á»ƒ káº¿t luáº­n, pháº£i nÃ³i Ä‘Ãºng: "ChÆ°a Ä‘á»§ cÄƒn cá»© tá»« dá»¯ liá»‡u hiá»‡n cÃ³ Ä‘á»ƒ káº¿t luáº­n." KhÃ´ng thay tháº¿ tÆ° váº¥n phÃ¡p lÃ½ chuyÃªn nghiá»‡p.
+Chỉ trả lời dựa trên evidence được cung cấp trong prompt. Không sử dụng kiến thức bên ngoài evidence. Không tự bịa Điều, Khoản, tên văn bản, số hiệu, mức tiền hoặc ngày hiệu lực.
 
-Tráº£ lá»i báº±ng tiáº¿ng Viá»‡t rÃµ rÃ ng, dá»… hiá»ƒu. PhÃ¢n biá»‡t rÃµ pháº§n "Quy Ä‘á»‹nh phÃ¡p luáº­t" vÃ  pháº§n "Suy luáº­n theo tÃ¬nh huá»‘ng" náº¿u cÃ³ suy luáº­n. Chá»‰ Ä‘Æ°a cÃ¡c document_id thá»±c sá»± dÃ¹ng Ä‘á»ƒ tráº£ lá»i vÃ o cited_document_ids.
+Nếu evidence không đủ để kết luận, phải nói đúng: "Chưa đủ căn cứ từ dữ liệu hiện có để kết luận." Không thay thế tư vấn pháp lý chuyên nghiệp.
+
+Trả lời bằng tiếng Việt rõ ràng, dễ hiểu. Phân biệt rõ phần "Quy định pháp luật" và phần "Suy luận theo tình huống" nếu có suy luận. Chỉ đưa các document_id thực sự dùng để trả lời vào cited_document_ids.
 """
 
 
@@ -48,13 +50,13 @@ def build_legal_context(evidence: list[HybridResult], domain_config: DomainConfi
         blocks.append("\n".join([
             f"[DOMAIN: {metadata.get('domain', label)}]",
             f"[DOCUMENT_ID: {metadata.get('id')}]",
-            f"TÃªn vÄƒn báº£n: {metadata.get('ten_van_ban')}",
-            f"Sá»‘ hiá»‡u: {metadata.get('so_hieu')}",
-            f"ChÆ°Æ¡ng: {metadata.get('chuong')}",
-            f"Äiá»u: {metadata.get('dieu')}",
-            f"Khoáº£n: {metadata.get('khoan')}",
+            f"Tên văn bản: {metadata.get('ten_van_ban')}",
+            f"Số hiệu: {metadata.get('so_hieu')}",
+            f"Chương: {metadata.get('chuong')}",
+            f"Điều: {metadata.get('dieu')}",
+            f"Khoản: {metadata.get('khoan')}",
             f"Source: {metadata.get('source')}",
-            f"Ná»™i dung:\n{item.document.page_content}",
+            f"Nội dung:\n{item.document.page_content}",
         ]))
     return "\n\n--- EVIDENCE ---\n\n".join(blocks)
 
@@ -110,17 +112,18 @@ def citation_from_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+from .citation_guardrail import verify_citations_guardrail
+
+
 def verify_citations(generated: GenerationResult, evidence: list[HybridResult]) -> tuple[str, str, list[dict[str, Any]]]:
-    evidence_by_id = {
-        item.document.metadata.get("id"): item.document.metadata
-        for item in evidence if item.document.metadata.get("id")
-    }
-    if not evidence_by_id or not generated.cited_document_ids:
-        return "insufficient_evidence", INSUFFICIENT_EVIDENCE, []
-    if any(document_id not in evidence_by_id for document_id in generated.cited_document_ids):
-        return "insufficient_evidence", INSUFFICIENT_EVIDENCE, []
-    citations = [citation_from_metadata(evidence_by_id[document_id]) for document_id in generated.cited_document_ids]
-    return "verified", generated.answer, citations
+    guardrail_result = verify_citations_guardrail(
+        answer=generated.answer,
+        evidence=evidence,
+        cited_document_ids=generated.cited_document_ids,
+        require_cited_ids=True,
+    )
+    verified_answer = INSUFFICIENT_EVIDENCE if guardrail_result.status == "insufficient_evidence" else guardrail_result.verified_answer
+    return guardrail_result.status, verified_answer, guardrail_result.citations
 
 
 def evidence_payload(evidence: list[HybridResult]) -> list[dict[str, Any]]:
@@ -164,7 +167,7 @@ def answer_question(
         logger.warning("LLM provider unavailable: %s", exc)
         return {
             **base,
-            "answer": "ChÆ°a thá»ƒ táº¡o cÃ¢u tráº£ lá»i vÃ¬ LLM provider chÆ°a Ä‘Æ°á»£c cáº¥u hÃ¬nh hoáº·c Ä‘ang gáº·p lá»—i.",
+            "answer": "Chưa thể tạo câu trả lời vì LLM provider chưa được cấu hình hoặc đang gặp lỗi.",
             "status": "provider_error",
             "citations": [],
         }
@@ -172,4 +175,3 @@ def answer_question(
     if contains_insufficient_evidence(generated.answer):
         return {**base, "answer": generated.answer, "status": "insufficient_evidence", "citations": []}
     return {**base, "answer": answer, "status": status, "citations": citations}
-

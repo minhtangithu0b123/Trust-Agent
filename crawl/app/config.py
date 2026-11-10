@@ -2,6 +2,7 @@ from dataclasses import replace
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .domains import DomainConfig, get_domain_config
@@ -18,8 +19,14 @@ class Settings(BaseSettings):
     embedding_device: str = "cpu"
     api_host: str = "127.0.0.1"
     api_port: int = 8000
-    openai_api_key: str | None = None
-    openai_model: str = "gpt-4o-mini"
+    openai_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("OPENAI_API_KEY", "openai_api_key"),
+    )
+    openai_model: str = Field(
+        default="gpt-4o-mini",
+        validation_alias=AliasChoices("OPENAI_MODEL_NAME", "OPENAI_MODEL", "openai_model"),
+    )
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

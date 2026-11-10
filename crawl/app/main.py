@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
@@ -27,6 +27,8 @@ class IngestRequest(BaseModel):
 class SearchRequest(BaseModel):
     query: str = Field(min_length=2)
     k: int = Field(default=5, ge=1, le=20)
+    thread_id: str | None = Field(default=None, description="Thread ID cho phiên hội thoại đa lượt")
+    session_id: str | None = Field(default=None, description="Tương đương thread_id")
 
 
 def clean_request(request: SearchRequest) -> SearchRequest:
@@ -200,7 +202,17 @@ def domain_ask(domain: str, request: SearchRequest) -> dict[str, Any]:
 @app.post("/router/ask")
 def router_ask(request: SearchRequest) -> dict[str, Any]:
     try:
-        return run_router(request.query, request.k)
+        thread_id = request.thread_id or request.session_id
+        if thread_id is not None:
+            response = run_router(request.query, request.k, thread_id=thread_id)
+        else:
+            response = run_router(request.query, request.k)
+        if isinstance(response, dict):
+            if "thread_id" not in response and thread_id is not None:
+                response["thread_id"] = thread_id
+            if request.session_id is not None and "session_id" not in response:
+                response["session_id"] = request.session_id
+        return response
     except Exception as exc:
         logger.exception("Router ask failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc

@@ -1,4 +1,4 @@
-﻿from types import SimpleNamespace
+from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 from langchain_core.documents import Document
@@ -124,4 +124,89 @@ def test_traffic_agent_uses_configured_openai_settings_without_exposing_key(monk
         "key_configured": True,
         "temperature": 0,
     }
+
+
+def test_traffic_agent_hallucinated_article_downgraded_by_guardrail(monkeypatch):
+    """Verifies that if traffic agent LLM produces a hallucinated article not in evidence,
+    guardrail downgrades status to unverified with warnings."""
+    monkeypatch.setattr(traffic_agent, "search_traffic_law", lambda query, k=5: [evidence("traffic-1")])
+    # LLM cites valid doc_id "traffic-1" but hallucinates "Điều 999" in text
+    model = FakeModel([
+        traffic_agent.ToolDecision(action="search", query="nồng độ cồn"),
+        traffic_agent.ToolDecision(
+            action="final",
+            answer="Căn cứ Điều 999 Nghị định 168/2024/NĐ-CP mức phạt là rất cao.",
+            cited_document_ids=["traffic-1"],
+        ),
+    ])
+    result = traffic_agent.run_traffic_agent("Mức phạt nồng độ cồn?", model=model)
+    assert result["status"] == "unverified"
+    assert result["citations"] == []
+    assert len(result.get("guardrail_warnings", [])) >= 1
+    assert "Điều 999" in result["guardrail_warnings"][0]
+    assert "[CẢNH BÁO:" in result["answer"]
+
+
+def test_traffic_agent_robust_with_evidence_lacking_citation_key(monkeypatch):
+    """Verifies that evidence lacking explicit 'citation' key (e.g. raw dict) does not crash with KeyError."""
+    raw_evidence = {
+        "document_id": "traffic-raw-1",
+        "text": "Xử phạt vi phạm giao thông.",
+        "metadata": {
+            "id": "traffic-raw-1",
+            "domain": "traffic",
+            "so_hieu": "168/2024/NĐ-CP",
+            "dieu": "Điều 6",
+            "khoan": "Khoản 1",
+            "source": "test",
+        },
+        # note: no 'citation' key here
+    }
+    monkeypatch.setattr(traffic_agent, "search_traffic_law", lambda query, k=5: [raw_evidence])
+    model = FakeModel([
+        traffic_agent.ToolDecision(action="search", query="nồng độ cồn"),
+        traffic_agent.ToolDecision(
+            action="final",
+            answer="Theo Điều 6 số 168/2024/NĐ-CP xử phạt vi phạm.",
+            cited_document_ids=["traffic-raw-1"],
+        ),
+    ])
+    result = traffic_agent.run_traffic_agent("Xử phạt nồng độ cồn?", model=model)
+    assert result["status"] == "verified"
+    assert len(result["citations"]) == 1
+    assert result["citations"][0]["document_id"] == "traffic-raw-1"
+    assert result["citations"][0]["dieu"] == "Điều 6"
+
+
+def test_traffic_agent_with_evidence_primary_key_id(monkeypatch):
+    """Verifies that evidence using 'id' (without 'document_id' at top level)
+    is properly recognized by _finalize_node and not rejected as insufficient."""
+    raw_evidence = {
+        "id": "traffic-id-only-1",
+        "text": "Xử phạt vi phạm giao thông theo Điều 6.",
+        "metadata": {
+            "id": "traffic-id-only-1",
+            "domain": "traffic",
+            "so_hieu": "168/2024/NĐ-CP",
+            "dieu": "Điều 6",
+            "khoan": "Khoản 1",
+            "source": "test",
+        },
+    }
+    monkeypatch.setattr(traffic_agent, "search_traffic_law", lambda query, k=5: [raw_evidence])
+    model = FakeModel([
+        traffic_agent.ToolDecision(action="search", query="nồng độ cồn"),
+        traffic_agent.ToolDecision(
+            action="final",
+            answer="Theo Điều 6 số 168/2024/NĐ-CP xử phạt vi phạm.",
+            cited_document_ids=["traffic-id-only-1"],
+        ),
+    ])
+    result = traffic_agent.run_traffic_agent("Xử phạt nồng độ cồn?", model=model)
+    assert result["status"] == "verified"
+    assert len(result["citations"]) == 1
+    assert result["citations"][0]["document_id"] == "traffic-id-only-1"
+    assert result["citations"][0]["dieu"] == "Điều 6"
+
+
 

@@ -28,6 +28,8 @@ dev = ["pytest>=8,<9", "httpx>=0.27,<1"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = [".", ".venv/Lib/site-packages"]
+addopts = "-p no:asyncio"
 
 [tool.setuptools.packages.find]
 include = ["app*"]
