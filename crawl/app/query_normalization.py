@@ -27,6 +27,11 @@ _RETRIEVAL_EXPANSIONS = {
         ("nong do con", "nồng độ cồn", "xử phạt vi phạm nồng độ cồn"),
         ("muc phat", "mức phạt vi phạm hành chính"),
         ("xe may", "xe mô tô, xe gắn máy"),
+        (
+            "vuot den do",
+            "không chấp hành hiệu lệnh của đèn tín hiệu giao thông",
+            "xe mô tô",
+        ),
         ("o to", "ô tô"),
         ("tai nan", "tai nạn giao thông"),
     ),

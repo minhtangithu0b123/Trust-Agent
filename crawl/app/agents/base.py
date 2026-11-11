@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import hashlib
 from dataclasses import dataclass
 from typing import Any, Callable, Literal, TypedDict
 
@@ -10,6 +11,7 @@ from pydantic import BaseModel, Field
 from ..answering import citation_from_metadata
 from ..citation_guardrail import verify_citations_guardrail
 from ..config import Settings
+from ..llm import ModelConfigurationError, build_structured_model
 from ..vectorstore import get_vectorstore
 from ..retrieval import get_hybrid_retriever
 
@@ -113,17 +115,10 @@ def get_domain_document(settings: Settings, domain: str, document_id: str) -> di
 
 
 def build_openai_model(settings: Settings):
-    if not getattr(settings, "openai_api_key", None):
-        raise AgentProviderError("OPENAI_API_KEY is not configured")
     try:
-        from langchain_openai import ChatOpenAI
-    except ImportError as exc:
-        raise AgentProviderError("langchain-openai is not installed") from exc
-    return ChatOpenAI(
-        model=settings.openai_model,
-        api_key=settings.openai_api_key,
-        temperature=0,
-    ).with_structured_output(ToolDecision)
+        return build_structured_model(settings, ToolDecision)
+    except ModelConfigurationError as exc:
+        raise AgentProviderError(str(exc)) from exc
 
 
 def _evidence_context(state: DomainAgentState) -> str:
@@ -277,11 +272,19 @@ def run_domain_agent(
             for item in output.get("evidence", [])
             if item.get("document_id") or item.get("id")
         }
-        citations = [
-            evidence_by_id[doc_id].get("citation") or citation_from_metadata(evidence_by_id[doc_id].get("metadata", evidence_by_id[doc_id]))
-            for doc_id in cited_ids
-            if doc_id in evidence_by_id
-        ]
+        citations = []
+        for doc_id in cited_ids:
+            evidence_item = evidence_by_id.get(doc_id)
+            if evidence_item is None:
+                continue
+            citation = dict(
+                evidence_item.get("citation")
+                or citation_from_metadata(evidence_item.get("metadata", evidence_item))
+            )
+            evidence_text = evidence_item.get("text")
+            if evidence_text:
+                citation["text_sha256"] = hashlib.sha256(evidence_text.encode("utf-8")).hexdigest()
+            citations.append(citation)
         if output.get("status") != "verified":
             citations = []
         res = {"query": query, "answer": output.get("answer", spec.insufficient_answer), "status": output.get("status", "insufficient_evidence"), "citations": citations}

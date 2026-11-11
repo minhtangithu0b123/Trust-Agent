@@ -1,0 +1,21 @@
+{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "Trust Agent — Vietnamese Traffic Law",
+  "description": "Vietnamese traffic-law RAG API. Returns answers with citations and evidence text hashes. Verify production endpoint ownership before publishing.",
+  "image": "https://example.com/trust-agent.png",
+  "services": [
+    {
+      "name": "web",
+      "endpoint": "https://YOUR_DOMAIN/"
+    },
+    {
+      "name": "x402",
+      "endpoint": "https://YOUR_DOMAIN/paid/traffic/ask",
+      "version": "2"
+    }
+  ],
+  "x402Support": false,
+  "active": false,
+  "registrations": [],
+  "supportedTrust": ["reputation"]
+}

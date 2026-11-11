@@ -16,6 +16,7 @@ from .agents.labor_agent import run_labor_agent
 from .agents.accounting_agent import run_accounting_agent
 from .config import Settings, get_settings
 from .query_normalization import clean_query, expand_query_for_retrieval, normalize_for_routing
+from .llm import build_structured_model
 
 logger = logging.getLogger(__name__)
 
@@ -151,16 +152,12 @@ def _classify_with_llm(
     messages: list[dict[str, str]] | None = None,
 ) -> list[dict[str, str]]:
     """Classify using the original cleaned Vietnamese query, never routing_query."""
-    if not getattr(settings, "openai_api_key", None):
+    provider = str(getattr(settings, "llm_provider", "openai")).strip().casefold()
+    key_name = "gemini_api_key" if provider == "gemini" else "openai_api_key"
+    if not getattr(settings, key_name, None):
         return []
     try:
-        from langchain_openai import ChatOpenAI
-
-        model = ChatOpenAI(
-            model=settings.openai_model,
-            api_key=settings.openai_api_key,
-            temperature=0,
-        ).with_structured_output(ClassificationPayload)
+        model = build_structured_model(settings, ClassificationPayload)
         history_context = ""
         if messages:
             recent = messages[-4:]
