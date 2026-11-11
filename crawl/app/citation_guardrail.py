@@ -60,6 +60,32 @@ def contains_insufficient_evidence(answer: str) -> bool:
     return phrase in normalized
 
 
+QUANTITATIVE_PATTERN = re.compile(
+    r"(?<!\w)(\d[\d.,]*)\s*(đồng|vnđ|vnd|ngày|tháng|năm|mg|miligam|km/h|giờ|%|triệu|tỷ)\b",
+    re.IGNORECASE,
+)
+
+
+def _compact_quantity(value: str, unit: str) -> str:
+    digits = re.sub(r"\D", "", value)
+    normalized_unit = _clean_nfc(unit).casefold().replace(" ", "")
+    return digits + normalized_unit
+
+
+def _extract_quantities(text: str) -> list[str]:
+    return [_compact_quantity(value, unit) for value, unit in QUANTITATIVE_PATTERN.findall(_clean_nfc(text))]
+
+
+def _unsupported_quantities(answer: str, evidence: list[Any]) -> list[str]:
+    evidence_texts: list[str] = []
+    for item in evidence:
+        if hasattr(item, "document"):
+            evidence_texts.append(str(getattr(item.document, "page_content", "")))
+        elif isinstance(item, dict):
+            evidence_texts.append(str(item.get("text", "")))
+    evidence_compact = re.sub(r"[\s.,/]", "", _clean_nfc(" ".join(evidence_texts)).casefold())
+    return [quantity for quantity in _extract_quantities(answer) if quantity not in evidence_compact]
+
 PUNCT_TO_STRIP = "()[]{}\"'.,;:-\u201c\u201d\u2018\u2019\u00ab\u00bb"
 
 
@@ -330,6 +356,7 @@ def verify_citations_guardrail(
     cited_document_ids: list[str] | None = None,
     require_cited_ids: bool = False,
     status_on_hallucination: str = "unverified",
+    verify_quantitative_claims: bool = False,
 ) -> CitationGuardrailResult:
     """Verifies citations in answer against evidence Grounding Index.
 
@@ -375,6 +402,24 @@ def verify_citations_guardrail(
     # 3. Build Grounding Index from evidence metadata
     index = build_grounding_index(evidence)
 
+    # 3a. Quantitative claims must appear in retrieved text, not only metadata.
+    unsupported_quantities = (
+        _unsupported_quantities(clean_ans, evidence)
+        if verify_quantitative_claims
+        else []
+    )
+    if unsupported_quantities:
+        warning_msg = (
+            "Unsupported quantitative claim not found in evidence: "
+            + ", ".join(unsupported_quantities)
+        )
+        logger.warning("Citation guardrail unsupported quantitative claim: %s", warning_msg)
+        return CitationGuardrailResult(
+            status=status_on_hallucination,
+            verified_answer=f"{clean_ans}\n\n[{warning_msg}]",
+            citations=[],
+            warnings=[warning_msg],
+        )
     # 4. Check explicit cited_document_ids if required or supplied
     if require_cited_ids and (not cited_document_ids):
         return CitationGuardrailResult(

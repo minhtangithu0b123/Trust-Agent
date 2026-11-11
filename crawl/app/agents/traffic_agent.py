@@ -1,4 +1,4 @@
-﻿"""Traffic domain adapter for the shared ReAct agent foundation."""
+"""Traffic domain adapter for the shared ReAct agent foundation."""
 
 from __future__ import annotations
 
@@ -34,6 +34,17 @@ Phân biệt "Quy định pháp luật" và "Suy luận theo tình huống" nế
 Chỉ dùng cited_document_ids xuất hiện trong evidence của lượt chạy này.
 """
 SPEC = DomainAgentSpec(TRAFFIC_DOMAIN, "Traffic Agent", AGENT_POLICY)
+
+def _clarification_for_ambiguous_query(query: str) -> str | None:
+    routing = normalize_for_routing(query)
+    helmet_terms = ("mu bao hiem", "doi mu", "doi non")
+    vehicle_terms = (
+        "xe may", "xe mo to", "xe gan may", "xe dap may", "xe dap dien",
+        "o to", "oto", "xe hoi", "xe dap",
+    )
+    if any(term in routing for term in helmet_terms) and not any(term in routing for term in vehicle_terms):
+        return "Bạn muốn tra cứu loại phương tiện nào: xe máy, xe đạp máy hay ô tô?"
+    return None
 
 
 def search_traffic_law(query: str, k: int = 5) -> list[dict[str, Any]]:
@@ -77,8 +88,16 @@ def build_traffic_agent_graph(model: Any):
 
 
 def run_traffic_agent(query: str, k: int = 5, model: Any | None = None, max_steps: int = MAX_STEPS, sub_queries: list[str] | None = None) -> dict[str, Any]:
-    settings = get_settings()
     cleaned_query = clean_query(query)
+    clarification = _clarification_for_ambiguous_query(cleaned_query)
+    if clarification:
+        return {
+            "query": cleaned_query,
+            "answer": clarification,
+            "status": "needs_clarification",
+            "citations": [],
+        }
+    settings = get_settings()
     return run_domain_agent(
         cleaned_query, k, settings, SPEC, search_traffic_law, get_traffic_document, model=model, max_steps=max_steps, sub_queries=sub_queries
     )

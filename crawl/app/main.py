@@ -1,4 +1,5 @@
 import hmac
+import inspect
 import json
 import logging
 from pathlib import Path
@@ -20,6 +21,18 @@ from .query_normalization import clean_query
 from .vectorstore import get_vectorstore, ingest_domain, ingest_labor, search_domain, search_labor
 from .provenance import canonical_json, create_receipt, merkle_proof, receipt_db, verify_merkle_proof
 from .contributions import ContributionInput, list_contributions, review_contribution, submit_contribution
+from .db import (
+    ConversationCreate,
+    ConversationUpdate,
+    add_message,
+    create_conversation,
+    delete_conversation as delete_conversation_record,
+    ensure_conversation,
+    get_conversation,
+    get_conversation_messages,
+    list_conversations,
+    update_conversation_title,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -89,7 +102,7 @@ def requires_api_key(method: str, path: str) -> bool:
 @app.middleware("http")
 async def protect_query_api(request: Request, call_next):
     settings = get_settings()
-    if not settings.require_api_key or not requires_api_key(request.method, request.url.path):
+    if not getattr(settings, "require_api_key", False) or not requires_api_key(request.method, request.url.path):
         return await call_next(request)
     expected = settings.api_access_token
     if not expected:
@@ -109,6 +122,7 @@ class SearchRequest(BaseModel):
     k: int = Field(default=5, ge=1, le=20)
     thread_id: str | None = Field(default=None, description="Thread ID cho phiên hội thoại đa lượt")
     session_id: str | None = Field(default=None, description="Tương đương thread_id")
+    conversation_id: str | None = Field(default=None, description="Conversation persistence ID")
 
 
 class ContributionReview(BaseModel):
@@ -301,6 +315,52 @@ def domain_hybrid_search(domain: str, request: SearchRequest) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+
+@app.post("/api/conversations", status_code=201)
+def create_conversation_endpoint(request: ConversationCreate) -> dict[str, Any]:
+    return create_conversation(title=request.title)
+
+
+@app.get("/api/conversations")
+def list_conversations_endpoint(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=422, detail="limit must be between 1 and 100")
+    if offset < 0:
+        raise HTTPException(status_code=422, detail="offset must be non-negative")
+    return list_conversations(limit=limit, offset=offset)
+
+
+@app.get("/api/conversations/{conversation_id}")
+def get_conversation_endpoint(conversation_id: str) -> dict[str, Any]:
+    conversation = get_conversation(conversation_id)
+    if conversation is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return conversation
+
+
+@app.get("/api/conversations/{conversation_id}/messages")
+def get_conversation_messages_endpoint(conversation_id: str) -> list[dict[str, Any]]:
+    if get_conversation(conversation_id) is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return get_conversation_messages(conversation_id)
+
+
+@app.patch("/api/conversations/{conversation_id}")
+def update_conversation_endpoint(conversation_id: str, request: ConversationUpdate) -> dict[str, Any]:
+    if get_conversation(conversation_id) is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    updated = update_conversation_title(conversation_id, request.title)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return updated
+
+
+@app.delete("/api/conversations/{conversation_id}", status_code=204)
+def delete_conversation_endpoint(conversation_id: str) -> None:
+    if not delete_conversation_record(conversation_id):
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return None
+
 @app.post("/ask")
 def ask(request: SearchRequest) -> dict[str, Any]:
     try:
@@ -322,16 +382,35 @@ def domain_ask(domain: str, request: SearchRequest) -> dict[str, Any]:
 @app.post("/router/ask")
 def router_ask(request: SearchRequest) -> dict[str, Any]:
     try:
-        thread_id = request.thread_id or request.session_id
-        if thread_id is not None:
-            response = run_router(request.query, request.k, thread_id=thread_id)
-        else:
-            response = run_router(request.query, request.k)
-        if isinstance(response, dict):
-            if "thread_id" not in response and thread_id is not None:
-                response["thread_id"] = thread_id
-            if request.session_id is not None and "session_id" not in response:
-                response["session_id"] = request.session_id
+        conversation_id = request.conversation_id or request.thread_id or request.session_id
+        conversation = ensure_conversation(
+            conversation_id=conversation_id,
+            default_title=request.query[:255],
+        )
+        conversation_id = conversation["id"]
+        router_parameters = inspect.signature(run_router).parameters
+        supports_thread_id = "thread_id" in router_parameters
+        router_kwargs: dict[str, Any] = {}
+        if supports_thread_id:
+            router_kwargs["thread_id"] = conversation_id
+        response = run_router(request.query, request.k, **router_kwargs)
+        answer = response.get("answer", "")
+        add_message(conversation_id, "user", request.query)
+        add_message(
+            conversation_id,
+            "assistant",
+            answer,
+            citations=response.get("citations", []),
+            status=response.get("status"),
+            metadata={
+                "domain": response.get("domain"),
+                "guardrail_status": response.get("guardrail_status"),
+            },
+        )
+        if supports_thread_id:
+            response["conversation_id"] = conversation_id
+            response["thread_id"] = conversation_id
+            response["session_id"] = conversation_id
         return response
     except Exception as exc:
         logger.exception("Router ask failed")

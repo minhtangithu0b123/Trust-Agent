@@ -8,7 +8,6 @@ flowchart LR
     FE[Next.js Frontend\nVercel]
     API[FastAPI API Gateway]
     ORCH[LangGraph Orchestrator\nDomain routing\nClarification questions]
-
     U --> FE --> API --> ORCH
 
     subgraph SPECIALISTS[Specialist Agents]

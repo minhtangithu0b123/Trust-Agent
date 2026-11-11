@@ -205,6 +205,7 @@ def _finalize_node(state: DomainAgentState, spec: DomainAgentSpec) -> dict[str, 
         evidence=state.get("evidence", []),
         cited_document_ids=cited_ids,
         require_cited_ids=True,
+        verify_quantitative_claims=True,
     )
     if guardrail_result.status != "verified":
         logger.warning("%s citation guardrail downgraded status: %s", spec.agent_name, guardrail_result.warnings)

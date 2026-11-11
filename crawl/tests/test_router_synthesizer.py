@@ -185,6 +185,24 @@ class TestLLMSynthesizerExecution:
         assert output["final_answer"] == INSUFFICIENT_EVIDENCE
         assert output["final_citations"] == []
 
+    def test_clarification_result_is_not_downgraded_to_insufficient_evidence(self):
+        state: router.RouterState = {
+            "query": "Chạy xe mà không đội mũ bảo hiểm",
+            "results": [
+                {
+                    "domain": "traffic",
+                    "answer": "Bạn muốn tra cứu loại phương tiện nào: xe máy, xe đạp máy hay ô tô?",
+                    "status": "needs_clarification",
+                    "citations": [],
+                }
+            ],
+        }
+
+        output = router.synthesize_results(state)
+
+        assert output["status"] == "needs_clarification"
+        assert "loại phương tiện" in output["final_answer"]
+        assert output["final_citations"] == []
     def test_single_branch_bypasses_synthesis(self):
         traffic_only = mock_traffic_branch()
         state: router.RouterState = {

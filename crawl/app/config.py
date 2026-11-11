@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     x402_facilitator_url: str = ""
     index_version: str = "development"
     provenance_db_path: str = "data/provenance.sqlite3"
+    database_url: str = Field(
+        default="sqlite:///./data/conversations.db",
+        validation_alias=AliasChoices("DATABASE_URL", "database_url"),
+    )
     reward_admin_token: str = ""
     ingest_admin_token: str = ""
     api_access_token: str = ""
@@ -59,6 +63,10 @@ class Settings(BaseSettings):
     @property
     def provenance_path(self) -> Path:
         return self.resolve_path(self.provenance_db_path)
+
+    @property
+    def db_url(self) -> str:
+        return self.database_url
 
     def domain_config(self, domain: str) -> DomainConfig:
         config = get_domain_config(domain)

@@ -1,4 +1,4 @@
-﻿import re
+import re
 import unicodedata
 
 _WHITESPACE = re.compile(r"\s+")
@@ -36,6 +36,8 @@ _RETRIEVAL_EXPANSIONS = {
         ("tai nan", "tai nạn giao thông"),
     ),
     "labor": (
+        ("quyen loi", "quy\u1ec1n l\u1ee3i ng\u01b0\u1eddi lao \u0111\u1ed9ng", "quy\u1ec1n v\u00e0 ngh\u0129a v\u1ee5 c\u1ee7a ng\u01b0\u1eddi lao \u0111\u1ed9ng"),
+        ("quyen cua nguoi lao dong", "quy\u1ec1n v\u00e0 ngh\u0129a v\u1ee5 c\u1ee7a ng\u01b0\u1eddi lao \u0111\u1ed9ng"),
         ("hop dong lao dong", "hợp đồng lao động"),
         ("nghi phep", "nghỉ hằng năm, nghỉ phép"),
         ("luong", "tiền lương"),
@@ -43,6 +45,12 @@ _RETRIEVAL_EXPANSIONS = {
         ("tai nan lao dong", "tai nạn lao động"),
     ),
     "accounting": (
+        ("nguyen tac ke toan", "nguyên tắc kế toán", "Luật Kế toán 2015 Điều 6"),
+        ("chung tu ke toan", "chứng từ kế toán"),
+        ("so ke toan", "sổ kế toán"),
+        ("bao cao tai chinh", "báo cáo tài chính"),
+        ("ke toan truong", "kế toán trưởng"),
+        ("luu tru tai lieu ke toan", "lưu trữ tài liệu kế toán"),
         ("hoa don dien tu", "hóa đơn điện tử"),
         ("thue gia tri gia tang", "thuế giá trị gia tăng"),
         ("ke toan", "kế toán"),

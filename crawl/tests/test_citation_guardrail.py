@@ -502,3 +502,20 @@ class TestInsufficientEvidenceAndEdgeCases:
         assert "5" in index.valid_dieu_by_so_hieu.get("145/2020/NĐ-CP", set())
         assert "5" not in index.valid_dieu_by_so_hieu.get("45/2019/QH14", set())
 
+
+
+def test_quantitative_claim_missing_from_evidence_is_not_verified():
+    evidence = [{
+        "document_id": "traffic-quant-1",
+        "text": "Quy dinh ve nong do con.",
+        "metadata": {"id": "traffic-quant-1", "domain": "traffic", "dieu": "\u0110i\u1ec1u 6"},
+    }]
+    result = verify_citations_guardrail(
+        answer="Muc phat la 500.000 \u0111\u1ed3ng theo \u0110i\u1ec1u 6.",
+        evidence=evidence,
+        cited_document_ids=["traffic-quant-1"],
+        verify_quantitative_claims=True,
+    )
+    assert result.status == "unverified"
+    assert result.citations == []
+    assert result.warnings

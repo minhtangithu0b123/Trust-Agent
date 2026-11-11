@@ -55,3 +55,21 @@ def test_expansion_preserves_legal_identifier():
     query = "muc phat nong do con theo Nghị định 168/2024/NĐ-CP"
     expanded = expand_query_for_retrieval(query, "muc phat nong do con theo nghi dinh 168/2024/nd-cp", "traffic")
     assert "168/2024/NĐ-CP" in expanded
+
+
+def test_labor_rights_query_expands_to_canonical_terms():
+    expanded = expand_query_for_retrieval(
+        "ng\u01b0\u1eddi lao \u0111\u1ed9ng c\u00f3 nh\u1eefng quy\u1ec1n l\u1ee3i g\u00ec",
+        "nguoi lao dong co nhung quyen loi gi",
+        "labor",
+    )
+    assert "quy\u1ec1n l\u1ee3i ng\u01b0\u1eddi lao \u0111\u1ed9ng" in expanded
+
+def test_accounting_query_expands_to_canonical_terms():
+    expanded = expand_query_for_retrieval(
+        "Lu\u1eadt K\u1ebf to\u00e1n quy \u0111\u1ecbnh nh\u1eefng nguy\u00ean t\u1eafc k\u1ebf to\u00e1n n\u00e0o",
+        "luat ke toan quy dinh nhung nguyen tac ke toan nao",
+        "accounting",
+    )
+    assert "nguy\u00ean t\u1eafc k\u1ebf to\u00e1n" in expanded
+    assert "Lu\u1eadt K\u1ebf to\u00e1n 2015 Điều 6" in expanded

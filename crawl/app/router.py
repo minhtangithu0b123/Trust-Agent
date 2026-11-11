@@ -459,6 +459,34 @@ def synthesize_results(state: RouterState) -> dict[str, Any]:
     results = state.get("results", [])
     verified = [result for result in results if result.get("status") == "verified"]
     if not verified:
+        clarification_results = [
+            result
+            for result in results
+            if result.get("status") == "needs_clarification"
+            and str(result.get("answer", "")).strip()
+        ]
+        if clarification_results:
+            clarification_answers: list[str] = []
+            seen_answers: set[str] = set()
+            for result in clarification_results:
+                answer = str(result["answer"]).strip()
+                if answer not in seen_answers:
+                    seen_answers.add(answer)
+                    clarification_answers.append(answer)
+            final_answer = "\n".join(clarification_answers)
+            turn_messages = [
+                {"role": "user", "content": query},
+                {"role": "assistant", "content": final_answer},
+            ]
+            return {
+                "final_answer": final_answer,
+                "final_citations": [],
+                "status": "needs_clarification",
+                "guardrail_status": "needs_clarification",
+                "guardrail_warnings": [],
+                "messages": turn_messages,
+            }
+
         turn_messages = [
             {"role": "user", "content": query},
             {"role": "assistant", "content": INSUFFICIENT_EVIDENCE},
@@ -523,7 +551,7 @@ def build_router_graph(checkpointer: Any = None):
     return graph.compile(checkpointer=checkpointer or _default_checkpointer)
 
 
-def run_router(query: str, k: int = 5, thread_id: str | None = None) -> dict[str, Any]:
+def run_router(query: str, k: int = 5, thread_id: str | None = None, messages: list[dict[str, str]] | None = None) -> dict[str, Any]:
     effective_thread_id = thread_id or str(uuid.uuid4())
     original_query = clean_query(query)
     state: RouterState = {
@@ -534,6 +562,7 @@ def run_router(query: str, k: int = 5, thread_id: str | None = None) -> dict[str
         "classifications": [],
         "results": [],
         "thread_id": effective_thread_id,
+        "messages": messages or [],
         "final_answer": "",
         "final_citations": [],
         "status": "routing",
@@ -541,7 +570,12 @@ def run_router(query: str, k: int = 5, thread_id: str | None = None) -> dict[str
         "guardrail_warnings": [],
     }
     config = {"configurable": {"thread_id": effective_thread_id}}
-    output = build_router_graph().invoke(state, config=config)
+    graph = build_router_graph()
+    if messages:
+        existing = graph.get_state(config)
+        if existing.values:
+            state["messages"] = []
+    output = graph.invoke(state, config=config)
     final_status = output.get("status", "insufficient_evidence")
     return {
         "query": output.get("original_query", original_query),

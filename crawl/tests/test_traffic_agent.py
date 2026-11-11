@@ -210,3 +210,10 @@ def test_traffic_agent_with_evidence_primary_key_id(monkeypatch):
 
 
 
+
+
+def test_ambiguous_helmet_query_requests_vehicle_type():
+    result = traffic_agent.run_traffic_agent("khong doi mu bao hiem")
+    assert result["status"] == "needs_clarification"
+    assert result["citations"] == []
+    assert "lo\u1ea1i ph\u01b0\u01a1ng ti\u1ec7n" in result["answer"]

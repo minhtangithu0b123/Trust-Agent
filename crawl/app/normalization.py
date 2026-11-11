@@ -54,7 +54,9 @@ def normalize_record(
         domain, values["source"], values["so_hieu"], values["dieu"],
         values["khoan"], values["text"], str(index),
     ])
-    record_id = hashlib.sha256(fingerprint.encode("utf-8")).hexdigest()[:24]
+    record_id = str(record.get("id") or record.get("document_id") or "")
+    if not record_id:
+        record_id = hashlib.sha256(fingerprint.encode("utf-8")).hexdigest()[:24]
     defaults = dict(metadata_defaults or {})
     base_metadata = {
         "id": record_id,
@@ -68,6 +70,12 @@ def normalize_record(
         "effective_from": repair_text(record.get("effective_from")) or defaults.get("effective_from", ""),
         "status": repair_text(record.get("status")) or defaults.get("status", "unknown"),
     }
+    for k, v in record.items():
+        if k not in base_metadata and k not in REQUIRED_FIELDS:
+            if isinstance(v, (str, int, float, bool)):
+                base_metadata[k] = v
+            elif isinstance(v, (list, dict)):
+                base_metadata[k] = json.dumps(v, ensure_ascii=False)
     metadata = dict(metadata_defaults or {})
     metadata.update(base_metadata)
     return record_id, Document(page_content=values["text"], metadata=metadata)

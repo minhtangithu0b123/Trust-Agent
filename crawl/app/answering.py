@@ -118,6 +118,7 @@ def verify_citations(generated: GenerationResult, evidence: list[HybridResult]) 
         evidence=evidence,
         cited_document_ids=generated.cited_document_ids,
         require_cited_ids=True,
+        verify_quantitative_claims=True,
     )
     verified_answer = INSUFFICIENT_EVIDENCE if guardrail_result.status == "insufficient_evidence" else guardrail_result.verified_answer
     return guardrail_result.status, verified_answer, guardrail_result.citations
