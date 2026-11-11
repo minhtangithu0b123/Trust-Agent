@@ -7,6 +7,7 @@ from typing import Any
 from ..config import get_settings
 from ..query_normalization import clean_query, expand_query_for_retrieval, normalize_for_routing
 from ..retrieval import get_hybrid_retriever
+from ..vectorstore import get_vectorstore
 from .base import (
     AgentFinalOutput as TrafficFinalOutput,
     AgentProviderError,
@@ -29,6 +30,7 @@ Luôn gọi evidence trước khi trả lời và chỉ sử dụng công cụ t
 Không dùng kiến thức bên ngoài evidence; không bịa số hiệu, Điều, Khoản, mức phạt, ngày hiệu lực hoặc citation.
 Có thể search nhiều lần hoặc lấy một document cụ thể nếu evidence chưa đủ.
 Nếu evidence đã có điều khoản xử phạt khớp trực tiếp với hành vi được hỏi, hãy trả lời ngay và trích dẫn đúng document_id; không search lặp lại cùng ý.
+Với câu hỏi chung về nồng độ cồn, nếu evidence có nhiều ngưỡng cho đúng loại phương tiện thì phải nêu đủ các ngưỡng theo thứ tự thấp đến cao và trích dẫn đủ điều khoản tương ứng. Không trộn mức phạt giữa ô tô, mô tô/xe gắn máy và xe máy chuyên dùng.
 Nếu không đủ căn cứ, phải trả đúng: "Chưa đủ căn cứ từ dữ liệu hiện có để kết luận."
 Nếu metadata hiệu lực là unknown hoặc trống, không khẳng định văn bản vẫn đang có hiệu lực; nói rõ trạng thái hiệu lực chưa được xác minh khi câu hỏi cần thông tin hiện hành.
 Phân biệt "Quy định pháp luật" và "Suy luận theo tình huống" nếu có suy luận.
@@ -53,6 +55,43 @@ def search_traffic_law(query: str, k: int = 5) -> list[dict[str, Any]]:
     original = clean_query(query)
     routing = normalize_for_routing(original)
     expanded = expand_query_for_retrieval(original, routing, TRAFFIC_DOMAIN)
+
+    # Alcohol penalties for motorcycles are three separate clauses in Article
+    # 7. General similarity search can mix them with the car / specialized
+    # vehicle clauses, which carry materially different fines. Fetch the exact
+    # article clauses by metadata when the user names a motorcycle.
+    motorcycle_terms = ("xe may", "xe mo to", "xe gan may")
+    if "nong do con" in routing and any(term in routing for term in motorcycle_terms):
+        store = get_vectorstore(settings, TRAFFIC_DOMAIN)
+        payload = store.get(
+            where={
+                "$and": [
+                    {"domain": TRAFFIC_DOMAIN},
+                    {"so_hieu": "168/2024/NĐ-CP"},
+                    {"dieu": "Điều 7"},
+                ]
+            },
+            include=["documents", "metadatas"],
+        )
+        target_clauses = {"Khoản 6", "Khoản 8", "Khoản 9"}
+        evidence = []
+        for document_id, text, metadata in zip(
+            payload.get("ids", []),
+            payload.get("documents", []),
+            payload.get("metadatas", []),
+        ):
+            metadata = metadata or {}
+            source = str(metadata.get("source", ""))
+            if (
+                metadata.get("so_hieu") == "168/2024/NĐ-CP"
+                and metadata.get("dieu") == "Điều 7"
+                and metadata.get("khoan") in target_clauses
+                and "Nghi-dinh-168-2024-ND-CP" in source
+                and "nồng độ cồn" in str(text).casefold()
+            ):
+                evidence.append(compact_evidence(document_id, text or "", metadata))
+        return evidence
+
     results = search_domain_law(settings, TRAFFIC_DOMAIN, get_hybrid_retriever, expanded, k)
     if "vuot den do" not in routing:
         return results
@@ -99,6 +138,13 @@ def run_traffic_agent(query: str, k: int = 5, model: Any | None = None, max_step
             "citations": [],
         }
     settings = get_settings()
+    routing = normalize_for_routing(cleaned_query)
+    motorcycle_terms = ("xe may", "xe mo to", "xe gan may")
+    if "nong do con" in routing and any(term in routing for term in motorcycle_terms):
+        # The adapter already retrieves the three exact motorcycle clauses.
+        # Router-generated subqueries may pull matching car/special-vehicle
+        # amounts and cause the model to combine incompatible penalty tables.
+        sub_queries = None
     return run_domain_agent(
         cleaned_query, k, settings, SPEC, search_traffic_law, get_traffic_document, model=model, max_steps=max_steps, sub_queries=sub_queries
     )
