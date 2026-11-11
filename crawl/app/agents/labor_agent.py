@@ -39,8 +39,36 @@ SPEC = DomainAgentSpec(LABOR_DOMAIN, "Labor Agent", AGENT_POLICY)
 def search_labor_law(query: str, k: int = 5) -> list[dict[str, Any]]:
     settings = get_settings()
     original = clean_query(query)
-    expanded = expand_query_for_retrieval(original, normalize_for_routing(original), LABOR_DOMAIN)
-    return search_domain_law(settings, LABOR_DOMAIN, get_hybrid_retriever, expanded, k)
+    routing_query = normalize_for_routing(original)
+    expanded = expand_query_for_retrieval(original, routing_query, LABOR_DOMAIN)
+
+    # High-value labor questions often need several adjacent statutory chunks.
+    # The corpus stores each clause as a separate document, so searching only
+    # the article heading can miss the clause that contains the actual limits.
+    sub_queries: list[str] = []
+    if "nghi hang nam" in routing_query:
+        sub_queries.extend(
+            [
+                "Điều 113 điểm a nghỉ hằng năm 12 ngày làm việc điều kiện bình thường",
+                "Điều 113 điểm b nghỉ hằng năm 14 ngày làm việc người chưa thành niên khuyết tật",
+                "Điều 113 điểm c nghỉ hằng năm 16 ngày làm việc công việc nặng nhọc độc hại nguy hiểm",
+            ]
+        )
+    if "don phuong cham dut hop dong" in routing_query and (
+        "nguoi lao dong" in routing_query or "nhan vien" in routing_query
+    ):
+        sub_queries.append(
+            "Điều 35 khoản 1 thời hạn người lao động báo trước: 45 ngày, 30 ngày, 03 ngày"
+        )
+
+    return search_domain_law(
+        settings,
+        LABOR_DOMAIN,
+        get_hybrid_retriever,
+        expanded,
+        k,
+        sub_queries=sub_queries,
+    )
 
 
 def get_labor_document(document_id: str) -> dict[str, Any] | None:

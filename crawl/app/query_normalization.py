@@ -40,6 +40,16 @@ _RETRIEVAL_EXPANSIONS = {
         ("quyen cua nguoi lao dong", "quy\u1ec1n v\u00e0 ngh\u0129a v\u1ee5 c\u1ee7a ng\u01b0\u1eddi lao \u0111\u1ed9ng"),
         ("hop dong lao dong", "hợp đồng lao động"),
         ("nghi phep", "nghỉ hằng năm, nghỉ phép"),
+        (
+            "nghi hang nam",
+            "ngày nghỉ hằng năm theo Điều 113 Bộ luật Lao động",
+            "điều kiện làm việc và số ngày nghỉ hằng năm",
+        ),
+        (
+            "don phuong cham dut hop dong lao dong",
+            "người lao động đơn phương chấm dứt hợp đồng lao động theo Điều 35",
+            "thời hạn báo trước khi người lao động chấm dứt hợp đồng",
+        ),
         ("luong", "tiền lương"),
         ("bao hiem xa hoi", "bảo hiểm xã hội"),
         ("tai nan lao dong", "tai nạn lao động"),

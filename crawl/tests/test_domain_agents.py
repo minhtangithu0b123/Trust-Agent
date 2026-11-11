@@ -46,6 +46,27 @@ def test_labor_search_expands_and_locks_domain(monkeypatch):
     assert results[0]["metadata"]["domain"] == "labor"
 
 
+def test_labor_search_retrieves_statutory_detail_chunks(monkeypatch):
+    captured = []
+
+    class Retriever:
+        def search(self, query, k):
+            captured.append(query)
+            return []
+
+    monkeypatch.setattr(labor_agent, "get_settings", settings)
+    monkeypatch.setattr(labor_agent, "get_hybrid_retriever", lambda _settings, domain=None: Retriever())
+
+    labor_agent.search_labor_law("Người lao động nghỉ hằng năm bao nhiêu ngày?", 5)
+    assert any("Điều 113" in query and "12 ngày" in query for query in captured)
+
+    captured.clear()
+    labor_agent.search_labor_law(
+        "Khi nào người lao động được đơn phương chấm dứt hợp đồng lao động?", 5
+    )
+    assert any("Điều 35" in query and "45 ngày" in query for query in captured)
+
+
 def test_accounting_search_expands_and_locks_domain(monkeypatch):
     captured = {}
     monkeypatch.setattr(accounting_agent, "get_settings", settings)
@@ -64,6 +85,44 @@ def test_labor_and_accounting_agents_use_shared_react_loop(monkeypatch):
     monkeypatch.setattr(accounting_agent, "search_accounting_law", lambda query, k=5: [accounting_evidence])
     assert labor_agent.run_labor_agent("lương", model=FakeModel())["status"] == "verified"
     assert accounting_agent.run_accounting_agent("thuế", model=FakeModel())["status"] == "verified"
+
+
+def test_domain_agent_seeds_model_with_domain_search_results():
+    from app.agents.base import DomainAgentSpec, run_domain_agent
+
+    evidence = {
+        "document_id": "seed-1",
+        "text": "Điều 5 quy định về quyền của người lao động.",
+        "metadata": {
+            "id": "seed-1",
+            "domain": "labor",
+            "dieu": "Điều 5",
+            "so_hieu": "45/2019/QH14",
+        },
+        "citation": {"document_id": "seed-1", "dieu": "Điều 5"},
+    }
+
+    class SeedAwareModel:
+        def invoke(self, prompt):
+            assert "Điều 5 quy định" in prompt
+            return {
+                "action": "final",
+                "answer": "Quy định nằm trong evidence.",
+                "cited_document_ids": ["seed-1"],
+            }
+
+    result = run_domain_agent(
+        "Hỏi về quyền người lao động",
+        5,
+        settings(),
+        DomainAgentSpec("labor", "Test labor agent", "Use only retrieved evidence."),
+        lambda _query, _k: [evidence],
+        lambda _document_id: evidence,
+        model=SeedAwareModel(),
+    )
+
+    assert result["status"] == "verified"
+    assert result["citations"][0]["document_id"] == "seed-1"
 
 
 def test_labor_and_accounting_endpoints(monkeypatch):

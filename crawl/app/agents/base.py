@@ -256,13 +256,36 @@ def run_domain_agent(
 ) -> dict[str, Any]:
     try:
         selected_model = model or build_openai_model(settings)
-        initial_evidence = []
+        # Seed the agent with the domain adapter's retrieval path so its
+        # deterministic, domain-specific expansions are applied before the
+        # LLM decides whether another search is needed.
+        try:
+            initial_evidence = search_tool(query, k)
+        except Exception:
+            logger.exception("%s initial evidence search failed", spec.agent_name)
+            initial_evidence = []
         if sub_queries:
-            # Multi-query initial seed search
             try:
-                initial_evidence = search_domain_law(settings, spec.domain, get_hybrid_retriever, query, k, sub_queries=sub_queries)
+                extra_evidence = search_domain_law(
+                    settings,
+                    spec.domain,
+                    get_hybrid_retriever,
+                    query,
+                    k,
+                    sub_queries=sub_queries,
+                )
+                observed_ids = {
+                    item.get("document_id") or item.get("id")
+                    for item in initial_evidence
+                    if item.get("document_id") or item.get("id")
+                }
+                initial_evidence.extend(
+                    item
+                    for item in extra_evidence
+                    if (item.get("document_id") or item.get("id")) not in observed_ids
+                )
             except Exception:
-                pass
+                logger.exception("%s sub-query evidence search failed", spec.agent_name)
         output = build_domain_agent_graph(spec, selected_model, search_tool, document_tool).invoke(
             {"query": query, "k": k, "max_steps": max_steps, "settings": settings, "evidence": initial_evidence, "observations": [], "steps": 0},
             config={"recursion_limit": max_steps * 3 + 3},
