@@ -69,7 +69,13 @@ class HybridRetriever:
             return []
         ids = list(self._documents)
         scores = self._bm25.get_scores(tokenize(query))
-        ranked = sorted(range(len(ids)), key=lambda index: (-scores[index], ids[index]))
+        # BM25 returns a score for every document. Returning the top ``limit``
+        # even when every score is zero makes unrelated documents look like
+        # lexical matches and pollutes the reciprocal-rank fusion results.
+        ranked = sorted(
+            (index for index, score in enumerate(scores) if score > 0),
+            key=lambda index: (-scores[index], ids[index]),
+        )
         return [ids[index] for index in ranked[:limit]]
 
     def search(self, query: str, k: int = 5, candidate_k: int | None = None) -> list[HybridResult]:
@@ -94,3 +100,10 @@ def get_hybrid_retriever(settings: Settings, domain: str = "labor") -> HybridRet
     if key not in _RETRIEVERS:
         _RETRIEVERS[key] = HybridRetriever(settings, domain=config.name)
     return _RETRIEVERS[key]
+
+
+def invalidate_hybrid_retriever(settings: Settings, domain: str) -> None:
+    """Drop cached BM25 state after documents are added or updated in Chroma."""
+    config = settings.domain_config(domain)
+    key = (str(settings.chroma_path), config.collection_name, settings.embedding_model, config.name)
+    _RETRIEVERS.pop(key, None)

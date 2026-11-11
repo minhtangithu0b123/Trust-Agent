@@ -29,6 +29,7 @@ Không khẳng định toàn bộ pháp luật kế toán hoặc thuế đã đ�
 Không dùng kiến thức bên ngoài evidence; không bịa số hiệu, Điều, Khoản, mức tiền, ngày hiệu lực hoặc citation.
 Có thể search nhiều lần hoặc lấy một document cụ thể nếu evidence chưa đủ.
 Nếu không đủ căn cứ, phải trả đúng: "Chưa đủ căn cứ từ dữ liệu hiện có để kết luận."
+Nếu metadata hiệu lực là unknown hoặc trống, không khẳng định văn bản vẫn đang có hiệu lực; nói rõ trạng thái hiệu lực chưa được xác minh khi câu hỏi cần thông tin hiện hành.
 Phân biệt "Quy định pháp luật" và "Suy luận theo tình huống" nếu có suy luận.
 Chỉ dùng cited_document_ids xuất hiện trong evidence của lượt chạy này.
 """
