@@ -1012,6 +1012,8 @@ class BenchmarkEvaluator:
 # ============================================================================
 
 def main() -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = argparse.ArgumentParser(
         description="Trust-AGENT Accuracy Benchmark & Legal Grounding Verification"
     )
@@ -1061,10 +1063,17 @@ def main() -> int:
     print(f"Provider: {args.provider} | Coverage Threshold: {args.threshold:.0%}")
     print("=================================================================")
 
-    # 1. Load benchmark data
-    dataset_path = find_dataset_file()
-    print(f"Loading dataset from: {dataset_path}")
-    signemo_cases = parse_bo_100_markdown(dataset_path)
+    # 1. Load benchmark data. The SignEmo question set is an external project
+    # artifact and is not present in every checkout; still run the in-repo
+    # statutory cases, while recording that the SignEmo portion was omitted.
+    dataset_path: Path | None = None
+    try:
+        dataset_path = find_dataset_file()
+        print(f"Loading SignEmo dataset from: {dataset_path}")
+        signemo_cases = parse_bo_100_markdown(dataset_path)
+    except FileNotFoundError as exc:
+        signemo_cases = []
+        print(f"WARNING: {exc}. Running statutory cases only; SignEmo coverage is not evaluated.")
     statutory_cases = load_statutory_benchmark_cases()
     all_cases = signemo_cases + statutory_cases
 
@@ -1106,6 +1115,14 @@ def main() -> int:
         "mode": "full" if is_full_mode else "quick",
         "provider": args.provider,
         "threshold": args.threshold,
+        "benchmark_sources": {
+            "signemo": {
+                "available": dataset_path is not None,
+                "loaded_cases": len(signemo_cases),
+                "path": str(dataset_path) if dataset_path else None,
+            },
+            "statutory": {"loaded_cases": len(statutory_cases)},
+        },
         "summary": summary,
         "cases": [asdict(r) for r in records],
     }
