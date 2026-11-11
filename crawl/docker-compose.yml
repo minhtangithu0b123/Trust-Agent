@@ -1,0 +1,17 @@
+﻿services:
+  trust-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      PORT: "8000"
+    ports:
+      - "8000:8000"
+    volumes:
+      - trust_agent_chroma:/app/data/chroma
+    restart: unless-stopped
+
+volumes:
+  trust_agent_chroma:

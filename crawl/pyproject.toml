@@ -31,6 +31,8 @@ blockchain = ["web3>=7,<8", "py-solc-x>=2,<3"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = [".", ".venv/Lib/site-packages"]
+addopts = "-p no:asyncio"
 
 [tool.setuptools.packages.find]
 include = ["app*"]

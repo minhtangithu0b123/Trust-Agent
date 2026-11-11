@@ -2,6 +2,7 @@ from dataclasses import replace
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .domains import DomainConfig, get_domain_config
@@ -21,8 +22,14 @@ class Settings(BaseSettings):
     llm_provider: str = "gemini"
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-3.5-flash-lite"
-    openai_api_key: str | None = None
-    openai_model: str = "gpt-4o-mini"
+    openai_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("OPENAI_API_KEY", "openai_api_key"),
+    )
+    openai_model: str = Field(
+        default="gpt-4o-mini",
+        validation_alias=AliasChoices("OPENAI_MODEL_NAME", "OPENAI_MODEL", "openai_model"),
+    )
     x402_enabled: bool = False
     x402_price_usd: str = "0.01"
     x402_network: str = "eip155:84532"

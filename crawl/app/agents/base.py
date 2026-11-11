@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import logging
 import hashlib
@@ -9,9 +9,11 @@ from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field
 
 from ..answering import citation_from_metadata
+from ..citation_guardrail import verify_citations_guardrail
 from ..config import Settings
 from ..llm import ModelConfigurationError, build_structured_model
 from ..vectorstore import get_vectorstore
+from ..retrieval import get_hybrid_retriever
 
 logger = logging.getLogger(__name__)
 INSUFFICIENT_EVIDENCE = "Chưa đủ căn cứ từ dữ liệu hiện có để kết luận."
@@ -47,6 +49,7 @@ class DomainAgentState(TypedDict, total=False):
     answer: str
     cited_document_ids: list[str]
     status: str
+    guardrail_warnings: list[str]
 
 
 @dataclass(frozen=True)
@@ -68,13 +71,29 @@ def compact_evidence(document_id: str, text: str, metadata: dict[str, Any]) -> d
     }
 
 
-def search_domain_law(settings: Settings, domain: str, retriever: Any, query: str, k: int) -> list[dict[str, Any]]:
-    results = retriever(settings, domain=domain).search(query, k=k)
-    return [
-        compact_evidence(str(result.document.metadata["id"]), result.document.page_content, result.document.metadata)
-        for result in results
-        if result.document.metadata.get("domain") == domain and result.document.metadata.get("id")
-    ]
+def search_domain_law(settings: Settings, domain: str, retriever: Any, query: str, k: int, sub_queries: list[str] | None = None) -> list[dict[str, Any]]:
+    ret = retriever(settings, domain=domain)
+    queries_to_run = [query]
+    if sub_queries:
+        for sq in sub_queries:
+            if sq and sq not in queries_to_run:
+                queries_to_run.append(sq)
+    
+    seen_ids = set()
+    combined_evidence = []
+    
+    for q in queries_to_run:
+        results = ret.search(q, k=k)
+        for result in results:
+            doc_id = str(result.document.metadata.get("id", ""))
+            if not doc_id or doc_id in seen_ids:
+                continue
+            if result.document.metadata.get("domain") == domain:
+                seen_ids.add(doc_id)
+                combined_evidence.append(
+                    compact_evidence(doc_id, result.document.page_content, result.document.metadata)
+                )
+    return combined_evidence
 
 
 def get_domain_document(settings: Settings, domain: str, document_id: str) -> dict[str, Any] | None:
@@ -103,10 +122,12 @@ def build_openai_model(settings: Settings):
 
 
 def _evidence_context(state: DomainAgentState) -> str:
-    blocks = [
-        f"DOCUMENT_ID: {item['document_id']}\nCITATION: {item['citation']}\nTEXT: {item['text']}"
-        for item in state.get("evidence", [])
-    ]
+    blocks = []
+    for item in state.get("evidence", []):
+        doc_id = item.get("document_id") or item.get("id", "")
+        citation_info = item.get("citation") or item.get("metadata", {})
+        text = item.get("text", "")
+        blocks.append(f"DOCUMENT_ID: {doc_id}\nCITATION: {citation_info}\nTEXT: {text}")
     return "\n\n--- OBSERVED EVIDENCE ---\n\n".join(blocks) or "Chưa có evidence."
 
 
@@ -148,9 +169,16 @@ def _execute_tool_node(
     else:
         return {}
     additions = result if isinstance(result, list) else ([result] if result else [])
-    existing = {item.get("document_id") for item in state.get("evidence", [])}
+    existing = {
+        (item.get("document_id") or item.get("id"))
+        for item in state.get("evidence", [])
+        if (item.get("document_id") or item.get("id"))
+    }
     evidence = list(state.get("evidence", []))
-    evidence.extend(item for item in additions if item and item.get("document_id") not in existing)
+    evidence.extend(
+        item for item in additions
+        if item and (item.get("document_id") or item.get("id")) not in existing
+    )
     return {"evidence": evidence, "observations": [*state.get("observations", []), {"tool": tool_name, "result": result}]}
 
 
@@ -162,13 +190,39 @@ def _finalize_node(state: DomainAgentState, spec: DomainAgentSpec) -> dict[str, 
     decision = state.get("decision", {})
     answer = str(decision.get("answer") or spec.insufficient_answer).strip()
     if spec.insufficient_answer in answer:
-        return {"answer": spec.insufficient_answer, "cited_document_ids": [], "status": "insufficient_evidence"}
-    observed_ids = {item.get("document_id") for item in state.get("evidence", [])}
+        return {"answer": spec.insufficient_answer, "cited_document_ids": [], "status": "insufficient_evidence", "guardrail_warnings": []}
+    observed_ids = {
+        (item.get("document_id") or item.get("id"))
+        for item in state.get("evidence", [])
+        if (item.get("document_id") or item.get("id"))
+    }
     cited_ids = list(dict.fromkeys(decision.get("cited_document_ids") or []))
     if not cited_ids or any(document_id not in observed_ids for document_id in cited_ids):
-        return {"answer": spec.insufficient_answer, "cited_document_ids": [], "status": "insufficient_evidence"}
-    final = AgentFinalOutput(answer=answer, cited_document_ids=cited_ids)
-    return {"answer": final.answer, "cited_document_ids": final.cited_document_ids, "status": "verified"}
+        return {"answer": spec.insufficient_answer, "cited_document_ids": [], "status": "insufficient_evidence", "guardrail_warnings": []}
+
+    guardrail_result = verify_citations_guardrail(
+        answer=answer,
+        evidence=state.get("evidence", []),
+        cited_document_ids=cited_ids,
+        require_cited_ids=True,
+    )
+    if guardrail_result.status != "verified":
+        logger.warning("%s citation guardrail downgraded status: %s", spec.agent_name, guardrail_result.warnings)
+        return {
+            "answer": guardrail_result.verified_answer,
+            "cited_document_ids": [],
+            "status": guardrail_result.status,
+            "guardrail_warnings": guardrail_result.warnings,
+        }
+
+    final = AgentFinalOutput(answer=guardrail_result.verified_answer, cited_document_ids=cited_ids)
+    return {
+        "answer": final.answer,
+        "cited_document_ids": final.cited_document_ids,
+        "status": "verified",
+        "guardrail_warnings": [],
+    }
+
 
 
 def build_domain_agent_graph(
@@ -197,26 +251,46 @@ def run_domain_agent(
     document_tool: Callable[[str], dict[str, Any] | None],
     model: Any | None = None,
     max_steps: int = MAX_STEPS,
+    sub_queries: list[str] | None = None,
 ) -> dict[str, Any]:
     try:
         selected_model = model or build_openai_model(settings)
+        initial_evidence = []
+        if sub_queries:
+            # Multi-query initial seed search
+            try:
+                initial_evidence = search_domain_law(settings, spec.domain, get_hybrid_retriever, query, k, sub_queries=sub_queries)
+            except Exception:
+                pass
         output = build_domain_agent_graph(spec, selected_model, search_tool, document_tool).invoke(
-            {"query": query, "k": k, "max_steps": max_steps, "settings": settings, "evidence": [], "observations": [], "steps": 0},
+            {"query": query, "k": k, "max_steps": max_steps, "settings": settings, "evidence": initial_evidence, "observations": [], "steps": 0},
             config={"recursion_limit": max_steps * 3 + 3},
         )
         cited_ids = output.get("cited_document_ids", [])
-        evidence_by_id = {item["document_id"]: item for item in output.get("evidence", [])}
+        evidence_by_id = {
+            (item.get("document_id") or item.get("id")): item
+            for item in output.get("evidence", [])
+            if item.get("document_id") or item.get("id")
+        }
         citations = []
         for doc_id in cited_ids:
             evidence_item = evidence_by_id.get(doc_id)
             if evidence_item is None:
                 continue
-            citation = dict(evidence_item["citation"])
-            citation["text_sha256"] = hashlib.sha256(evidence_item["text"].encode("utf-8")).hexdigest()
+            citation = dict(
+                evidence_item.get("citation")
+                or citation_from_metadata(evidence_item.get("metadata", evidence_item))
+            )
+            evidence_text = evidence_item.get("text")
+            if evidence_text:
+                citation["text_sha256"] = hashlib.sha256(evidence_text.encode("utf-8")).hexdigest()
             citations.append(citation)
         if output.get("status") != "verified":
             citations = []
-        return {"query": query, "answer": output.get("answer", spec.insufficient_answer), "status": output.get("status", "insufficient_evidence"), "citations": citations}
+        res = {"query": query, "answer": output.get("answer", spec.insufficient_answer), "status": output.get("status", "insufficient_evidence"), "citations": citations}
+        if output.get("guardrail_warnings"):
+            res["guardrail_warnings"] = output["guardrail_warnings"]
+        return res
     except AgentProviderError as exc:
         logger.warning("%s unavailable: %s", spec.agent_name, exc)
         return {"query": query, "answer": f"{spec.agent_name} chưa thể tạo câu trả lời vì provider chưa được cấu hình hoặc đang gặp lỗi.", "status": "provider_error", "citations": []}
