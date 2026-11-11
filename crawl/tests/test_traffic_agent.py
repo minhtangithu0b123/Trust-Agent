@@ -125,6 +125,49 @@ def test_motorcycle_alcohol_agent_drops_broad_router_subqueries(monkeypatch):
     assert captured["sub_queries"] is None
 
 
+def test_motorcycle_speed_search_uses_only_article_7_clause_4(monkeypatch):
+    record = (
+        "speed-10-20",
+        "Điều 7 Khoản 4: Phạt tiền từ 800.000 đồng đến 1.000.000 đồng đối với xe mô tô chạy quá tốc độ từ 10 km/h đến 20 km/h.",
+        {
+            "domain": "traffic",
+            "so_hieu": "168/2024/NĐ-CP",
+            "dieu": "Điều 7",
+            "khoan": "Khoản 4",
+            "source": "https://example/Nghi-dinh-168-2024-ND-CP.aspx",
+        },
+    )
+
+    class Store:
+        def get(self, *, where, include):
+            assert {"khoan": "Khoản 4"} in where["$and"]
+            return {"ids": [record[0]], "documents": [record[1]], "metadatas": [record[2]]}
+
+    monkeypatch.setattr(traffic_agent, "get_settings", lambda: SimpleNamespace())
+    monkeypatch.setattr(traffic_agent, "get_vectorstore", lambda _settings, _domain: Store())
+    result = traffic_agent.search_traffic_law("Xe máy chạy quá tốc độ từ 10 đến 20 km/h bị phạt bao nhiêu?")
+
+    assert [item["document_id"] for item in result] == ["speed-10-20"]
+
+
+def test_motorcycle_speed_agent_drops_broad_router_subqueries(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(traffic_agent, "get_settings", lambda: SimpleNamespace())
+
+    def fake_run_domain_agent(*args, **kwargs):
+        captured["sub_queries"] = kwargs.get("sub_queries")
+        return {"status": "insufficient_evidence", "citations": []}
+
+    monkeypatch.setattr(traffic_agent, "run_domain_agent", fake_run_domain_agent)
+    traffic_agent.run_traffic_agent(
+        "Xe máy chạy quá tốc độ từ 10 đến 20 km/h bị phạt bao nhiêu?",
+        model=object(),
+        sub_queries=["tốc độ ô tô"],
+    )
+
+    assert captured["sub_queries"] is None
+
+
 def test_traffic_agent_endpoint(monkeypatch):
     expected = {"query": "Mức phạt?", "answer": "ok", "status": "verified", "citations": []}
     monkeypatch.setattr("app.main.run_traffic_agent", lambda query, k: expected)

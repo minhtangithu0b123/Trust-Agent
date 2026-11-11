@@ -92,6 +92,38 @@ def search_traffic_law(query: str, k: int = 5) -> list[dict[str, Any]]:
                 evidence.append(compact_evidence(document_id, text or "", metadata))
         return evidence
 
+    # The speed limit is split across different vehicle classes and speed
+    # bands in Article 7. Similarity search often mixes those clauses, so for
+    # an explicit motorcycle 10–20 km/h query use only Article 7(4).
+    if (
+        any(term in routing for term in ("xe may", "xe mo to", "xe gan may"))
+        and any(term in routing for term in ("vuot toc do", "qua toc do", "toc do"))
+        and any(term in routing for term in ("10 den 20", "10-20", "tu 10", "10 km h den 20"))
+    ):
+        store = get_vectorstore(settings, TRAFFIC_DOMAIN)
+        payload = store.get(
+            where={
+                "$and": [
+                    {"domain": TRAFFIC_DOMAIN},
+                    {"so_hieu": "168/2024/NĐ-CP"},
+                    {"dieu": "Điều 7"},
+                    {"khoan": "Khoản 4"},
+                ]
+            },
+            include=["documents", "metadatas"],
+        )
+        return [
+            compact_evidence(document_id, text or "", metadata or {})
+            for document_id, text, metadata in zip(
+                payload.get("ids", []),
+                payload.get("documents", []),
+                payload.get("metadatas", []),
+            )
+            if "Nghi-dinh-168-2024-ND-CP" in str((metadata or {}).get("source", ""))
+            and "10 km/h" in str(text)
+            and "20 km/h" in str(text)
+        ]
+
     results = search_domain_law(settings, TRAFFIC_DOMAIN, get_hybrid_retriever, expanded, k)
     if "vuot den do" not in routing:
         return results
@@ -140,8 +172,14 @@ def run_traffic_agent(query: str, k: int = 5, model: Any | None = None, max_step
     settings = get_settings()
     routing = normalize_for_routing(cleaned_query)
     motorcycle_terms = ("xe may", "xe mo to", "xe gan may")
-    if "nong do con" in routing and any(term in routing for term in motorcycle_terms):
-        # The adapter already retrieves the three exact motorcycle clauses.
+    if (
+        "nong do con" in routing and any(term in routing for term in motorcycle_terms)
+    ) or (
+        any(term in routing for term in motorcycle_terms)
+        and any(term in routing for term in ("vuot toc do", "qua toc do", "toc do"))
+        and any(term in routing for term in ("10 den 20", "10-20", "tu 10", "10 km h den 20"))
+    ):
+        # The adapter already retrieves exact, vehicle-specific clauses.
         # Router-generated subqueries may pull matching car/special-vehicle
         # amounts and cause the model to combine incompatible penalty tables.
         sub_queries = None

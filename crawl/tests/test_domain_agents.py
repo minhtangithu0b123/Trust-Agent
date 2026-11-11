@@ -67,6 +67,97 @@ def test_labor_search_retrieves_statutory_detail_chunks(monkeypatch):
     assert any("Điều 35" in query and "45 ngày" in query for query in captured)
 
 
+def test_labor_search_seeds_salary_contract_and_discipline_clauses(monkeypatch):
+    captured = []
+
+    class Retriever:
+        def search(self, query, k):
+            captured.append(query)
+            return []
+
+    monkeypatch.setattr(labor_agent, "get_settings", settings)
+    monkeypatch.setattr(labor_agent, "get_hybrid_retriever", lambda _settings, domain=None: Retriever())
+
+    labor_agent.search_labor_law("Người sử dụng lao động trả lương lúc nào, có được trả chậm không?", 5)
+    assert any("Điều 97 khoản 4" in query and "30 ngày" in query for query in captured)
+
+    captured.clear()
+    labor_agent.search_labor_law("Hợp đồng lao động phải có nội dung chủ yếu nào?", 5)
+    assert sum("Điều 21" in query for query in captured) >= 10
+    assert any("điểm k" in query and "kỹ năng nghề" in query for query in captured)
+
+    captured.clear()
+    labor_agent.search_labor_law("Không được xử lý kỷ luật lao động trong trường hợp nào?", 5)
+    assert any("Điều 122 khoản 4" in query for query in captured)
+    assert any("Điều 127 khoản 3" in query for query in captured)
+
+
+def test_labor_contract_contents_answer_is_complete_and_cites_all_points(monkeypatch):
+    points = ("a)", "b)", "c)", "d)", "đ)", "e)", "g)", "h)", "i)", "k)")
+    descriptions = {"đ)": "đ) Mức lương theo công việc", "g)": "g) Thời giờ làm việc"}
+    records = [
+        (f"doc-{point}", f"Nội dung: {descriptions.get(point, f'{point} nội dung luật {point}')}", {
+            "id": f"doc-{point}", "domain": "labor", "so_hieu": "45/2019/QH14",
+            "dieu": "Điều 21", "khoan": f"Khoản {point} nội dung",
+        })
+        for point in points
+    ]
+
+    class Store:
+        def get(self, *, where, include):
+            return {
+                "ids": [row[0] for row in records],
+                "documents": [row[1] for row in records],
+                "metadatas": [row[2] for row in records],
+            }
+
+    monkeypatch.setattr(labor_agent, "get_settings", settings)
+    monkeypatch.setattr(labor_agent, "get_vectorstore", lambda _settings, _domain: Store())
+    result = labor_agent.run_labor_agent("Hợp đồng lao động phải có những nội dung chủ yếu nào?")
+
+    assert result["status"] == "verified"
+    assert len(result["citations"]) == 10
+    assert "Mức lương" in result["answer"]
+    assert "Thời giờ làm việc" in result["answer"]
+    assert "Điểm đ) đ)" not in result["answer"]
+
+
+def test_labor_discipline_period_answer_stays_within_article_122(monkeypatch):
+    clauses = ("a)", "b)", "c)", "d)", "5.")
+    descriptions = {
+        "a)": "a) nghỉ ốm đau",
+        "b)": "b) bị tạm giữ",
+        "c)": "c) chờ kết quả điều tra",
+        "d)": "d) mang thai",
+        "5.": "5. mắc bệnh tâm thần",
+    }
+    records = [
+        (f"doc-{clause}", f"Nội dung: {descriptions[clause]}", {
+            "id": f"doc-{clause}", "domain": "labor", "so_hieu": "45/2019/QH14",
+            "dieu": "Điều 122", "khoan": f"Khoản {clause} nội dung",
+        })
+        for clause in clauses
+    ]
+
+    class Store:
+        def get(self, *, where, include):
+            return {
+                "ids": [row[0] for row in records],
+                "documents": [row[1] for row in records],
+                "metadatas": [row[2] for row in records],
+            }
+
+    monkeypatch.setattr(labor_agent, "get_settings", settings)
+    monkeypatch.setattr(labor_agent, "get_vectorstore", lambda _settings, _domain: Store())
+    result = labor_agent.run_labor_agent("Người sử dụng lao động không được xử lý kỷ luật lao động trong trường hợp nào?")
+
+    assert result["status"] == "verified"
+    assert len(result["citations"]) == 5
+    assert all(citation["dieu"] == "Điều 122" for citation in result["citations"])
+    assert "bị tạm giữ" in result["answer"]
+    assert "mắc bệnh tâm thần" in result["answer"]
+
+
 def test_accounting_search_expands_and_locks_domain(monkeypatch):
     captured = {}
     monkeypatch.setattr(accounting_agent, "get_settings", settings)

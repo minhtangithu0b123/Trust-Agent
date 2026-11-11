@@ -519,3 +519,18 @@ def test_quantitative_claim_missing_from_evidence_is_not_verified():
     assert result.status == "unverified"
     assert result.citations == []
     assert result.warnings
+
+
+def test_speed_quantity_with_or_without_spaces_matches_evidence():
+    evidence = [{
+        "document_id": "traffic-speed-1",
+        "text": "Chạy quá tốc độ từ 10 km/h đến 20 km/h bị xử phạt.",
+        "metadata": {"id": "traffic-speed-1", "domain": "traffic", "dieu": "Điều 7"},
+    }]
+    result = verify_citations_guardrail(
+        answer="Mức phạt áp dụng khi vượt quá 20km/h theo Điều 7.",
+        evidence=evidence,
+        cited_document_ids=["traffic-speed-1"],
+        verify_quantitative_claims=True,
+    )
+    assert result.status == "verified"
