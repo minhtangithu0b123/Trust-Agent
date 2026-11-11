@@ -737,12 +737,45 @@ def load_statutory_benchmark_cases() -> list[BenchmarkCase]:
             is_quick=True,
         ),
         BenchmarkCase(
+            id="legal_labor_retirement_2026",
+            group_id=11,
+            group_name="Tuổi nghỉ hưu (Nghị định 135/2020/NĐ-CP)",
+            question="Tuổi nghỉ hưu năm 2026 của lao động nam và nữ trong điều kiện bình thường là bao nhiêu?",
+            reference_answer=(
+                "Theo khoản 2 Điều 4 Nghị định 135/2020/NĐ-CP, năm 2026 tuổi nghỉ hưu trong điều kiện lao động bình thường "
+                "là 61 tuổi 6 tháng đối với lao động nam và 57 tuổi đối với lao động nữ."
+            ),
+            expected_domain="labor",
+            key_assertions=[
+                "135/2020/NĐ-CP",
+                "Điều 4",
+                "61 tuổi 6 tháng",
+                "57 tuổi",
+                "điều kiện lao động bình thường",
+            ],
+            forbidden_claims=["nam 62 tuổi", "nữ 60 tuổi trong năm 2026"],
+            cited_document_ids=["retirement-135-4-2"],
+            evidence=[{
+                "id": "retirement-135-4-2",
+                "domain": "labor",
+                "so_hieu": "135/2020/NĐ-CP",
+                "ten_van_ban": "Nghị định 135/2020/NĐ-CP quy định về tuổi nghỉ hưu",
+                "dieu": "Điều 4",
+                "khoan": "Khoản 2",
+                "text": (
+                    "Điều 4 khoản 2: Năm 2026, tuổi nghỉ hưu trong điều kiện lao động bình thường là "
+                    "61 tuổi 6 tháng đối với lao động nam và 57 tuổi đối với lao động nữ."
+                ),
+            }],
+            is_quick=True,
+        ),
+        BenchmarkCase(
             id="legal_accounting_1",
             group_id=13,
             group_name="Luật Kế toán & Thuế (Luật Kế toán 2015)",
             question="Thời hạn nộp báo cáo tài chính năm của doanh nghiệp theo Luật Kế toán 2015 là bao lâu?",
             reference_answer=(
-                "Theo Điều 31 và Điều 32 Luật Kế toán 2015 (số hiệu 88/2015/QH13), đơn vị kế toán phải nộp báo cáo tài chính "
+                "Theo khoản 3 Điều 29 Luật Kế toán 2015 (số hiệu 88/2015/QH13), đơn vị kế toán phải nộp báo cáo tài chính "
                 "năm cho cơ quan nhà nước có thẩm quyền trong thời hạn 90 ngày kể từ ngày kết thúc kỳ kế toán năm theo quy định của pháp luật."
             ),
             expected_domain="accounting",
@@ -753,23 +786,16 @@ def load_statutory_benchmark_cases() -> list[BenchmarkCase]:
                 "thời hạn",
             ],
             forbidden_claims=["thời hạn 10 năm", "không cần nộp báo cáo"],
-            cited_document_ids=["accounting-31", "accounting-32"],
+            cited_document_ids=["accounting-29-3"],
             evidence=[
                 {
-                    "id": "accounting-31",
+                    "id": "accounting-29-3",
                     "domain": "accounting",
                     "so_hieu": "88/2015/QH13",
                     "ten_van_ban": "Luật Kế toán 2015",
-                    "dieu": "Điều 31",
-                    "text": "Điều 31. Nộp báo cáo tài chính. Báo cáo tài chính năm của đơn vị kế toán phải được nộp cho cơ quan nhà nước có thẩm quyền trong thời hạn quy định.",
-                },
-                {
-                    "id": "accounting-32",
-                    "domain": "accounting",
-                    "so_hieu": "88/2015/QH13",
-                    "ten_van_ban": "Luật Kế toán 2015",
-                    "dieu": "Điều 32",
-                    "text": "Điều 32. Công khai báo cáo tài chính. Báo cáo tài chính năm của đơn vị kế toán phải được nộp và công khai theo quy định của pháp luật trong thời hạn 90 ngày.",
+                    "dieu": "Điều 29",
+                    "khoan": "Khoản 3",
+                    "text": "Khoản 3 Điều 29: Báo cáo tài chính năm của đơn vị kế toán phải được nộp cho cơ quan nhà nước có thẩm quyền trong thời hạn 90 ngày, kể từ ngày kết thúc kỳ kế toán năm theo quy định của pháp luật.",
                 },
             ],
             is_quick=True,

@@ -47,7 +47,10 @@ from scripts.evaluate_accuracy import (
 @pytest.fixture(scope="module")
 def bo_100_cases():
     """Loads and caches parsed benchmark cases from bo_100_cau_hoi_phan_bien_SignEmo.md."""
-    dataset_path = find_dataset_file()
+    try:
+        dataset_path = find_dataset_file()
+    except FileNotFoundError as exc:
+        pytest.skip(f"External SignEmo benchmark dataset is not present: {exc}")
     return parse_bo_100_markdown(dataset_path)
 
 
@@ -174,6 +177,17 @@ class TestTier1FeatureCoverage:
         assert record.assertion_coverage >= 0.80
         assert "Điều 113" in record.matched_assertions
         assert "45/2019/QH14" in record.matched_assertions
+        assert record.pass_verdict is True
+
+    def test_tier1_f2_retirement_age_2026_grounding(self, statutory_cases, evaluator):
+        case = next(c for c in statutory_cases if c.id == "legal_labor_retirement_2026")
+        record = evaluator.evaluate_single_case(case)
+
+        assert "labor" in record.routed_domains
+        assert record.guardrail_status == "verified"
+        assert record.assertion_coverage == 1.0
+        assert "61 tuổi 6 tháng" in record.matched_assertions
+        assert "57 tuổi" in record.matched_assertions
         assert record.pass_verdict is True
 
     def test_tier1_f2_traffic_red_light_grounding(self, statutory_cases, evaluator):

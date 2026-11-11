@@ -10,6 +10,7 @@ class DomainConfig:
     data_path: str
     prompt_name: str
     metadata_defaults: dict[str, str]
+    supplemental_paths: tuple[str, ...] = ()
 
 
 DOMAIN_CONFIGS: dict[str, DomainConfig] = {
@@ -19,6 +20,7 @@ DOMAIN_CONFIGS: dict[str, DomainConfig] = {
         data_path="data/raw/lao_dong.json",
         prompt_name="legal_labor_agent",
         metadata_defaults={"status": "unknown", "effective_from": ""},
+        supplemental_paths=("data/raw/lao_dong_supplemental.json",),
     ),
     # The current accounting corpus is tax-law data in thue.json; keep this
     # mapping configurable so it can be replaced by a dedicated accounting corpus.
