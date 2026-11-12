@@ -8,7 +8,7 @@ from typing import Any, Callable, Literal, TypedDict
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field
 
-from ..answering import citation_from_metadata
+from ..answering import build_relevant_excerpt, citation_from_metadata
 from ..citation_guardrail import verify_citations_guardrail
 from ..config import Settings
 from ..llm import ModelConfigurationError, build_structured_model
@@ -126,7 +126,7 @@ def _evidence_context(state: DomainAgentState) -> str:
     for item in state.get("evidence", []):
         doc_id = item.get("document_id") or item.get("id", "")
         citation_info = item.get("citation") or item.get("metadata", {})
-        text = item.get("text", "")
+        text = build_relevant_excerpt(item.get("text", ""), state.get("query", ""))
         blocks.append(f"DOCUMENT_ID: {doc_id}\nCITATION: {citation_info}\nTEXT: {text}")
     return "\n\n--- OBSERVED EVIDENCE ---\n\n".join(blocks) or "Chưa có evidence."
 
@@ -140,7 +140,7 @@ def _decide_node(state: DomainAgentState, model: Any, spec: DomainAgentSpec) -> 
         f"{spec.policy}\n\nCâu hỏi gốc: {state['query']}\n"
         f"Số bước đã dùng: {steps}/{max_steps}\nEvidence quan sát được:\n{_evidence_context(state)}\n\n"
         "Chọn action search, get_document hoặc final. Với search điền query; với get_document điền document_id. "
-        "Với final điền answer và cited_document_ids. Nếu chưa có evidence, không được chọn final."
+        "Với final điền answer và cited_document_ids. Nếu chưa có evidence, không được chọn final. Trả lời tối đa 3-5 câu hoặc 3 gạch đầu dòng, không sao chép nguyên văn evidence."
     )
     try:
         decision = model.invoke(prompt)
