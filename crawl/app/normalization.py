@@ -83,10 +83,24 @@ def normalize_record(
 
 def load_documents(path: Path, domain_config: DomainConfig) -> list[tuple[str, Document]]:
     defaults = metadata_with_defaults(domain_config, {})
-    return [
-        normalize_record(record, index, domain=domain_config.name, metadata_defaults=defaults)
-        for index, record in enumerate(load_records(path))
-    ]
+    documents: list[tuple[str, Document]] = []
+    source_paths = [path]
+    if domain_config.supplemental_paths:
+        source_root = Path(__file__).resolve().parents[1]
+        source_paths.extend(
+            (Path(supplemental_path) if Path(supplemental_path).is_absolute() else source_root / supplemental_path)
+            for supplemental_path in domain_config.supplemental_paths
+        )
+    for source_path in source_paths:
+        if not source_path.exists():
+            raise FileNotFoundError(f"Configured corpus file not found: {source_path}")
+        records = load_records(source_path)
+        offset = len(documents)
+        documents.extend(
+            normalize_record(record, offset + index, domain=domain_config.name, metadata_defaults=defaults)
+            for index, record in enumerate(records)
+        )
+    return documents
 
 
 def load_labor_documents(path: Path, domain: str = "labor") -> list[tuple[str, Document]]:

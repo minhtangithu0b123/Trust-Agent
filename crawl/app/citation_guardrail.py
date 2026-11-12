@@ -68,7 +68,10 @@ QUANTITATIVE_PATTERN = re.compile(
 
 def _compact_quantity(value: str, unit: str) -> str:
     digits = re.sub(r"\D", "", value)
-    normalized_unit = _clean_nfc(unit).casefold().replace(" ", "")
+    # Match the compact evidence normalization below, which removes slashes
+    # and punctuation. For example, ``20 km/h`` and ``20km/h`` both become
+    # ``20kmh``.
+    normalized_unit = re.sub(r"[^\w%]", "", _clean_nfc(unit).casefold())
     return digits + normalized_unit
 
 

@@ -229,7 +229,7 @@ def ingest(
 ) -> dict[str, Any]:
     require_ingest_admin(x_ingest_token)
     try:
-        result = ingest_labor(get_settings())
+        result = ingest_labor(get_settings(), force=bool(request and request.force))
         return {"status": "ok", "domain": get_settings().labor_domain, **result.__dict__}
     except Exception as exc:
         logger.exception("Labor ingest failed")
@@ -245,7 +245,7 @@ def ingest_domain_endpoint(
     require_ingest_admin(x_ingest_token)
     settings, config = domain_settings(domain)
     try:
-        result = ingest_domain(settings, config.name)
+        result = ingest_domain(settings, config.name, force=bool(request and request.force))
         return {"status": "ok", "domain": config.name, "collection": config.collection_name, **result.__dict__}
     except CorpusNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

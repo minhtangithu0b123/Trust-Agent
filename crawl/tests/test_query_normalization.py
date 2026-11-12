@@ -65,6 +65,26 @@ def test_labor_rights_query_expands_to_canonical_terms():
     )
     assert "quy\u1ec1n l\u1ee3i ng\u01b0\u1eddi lao \u0111\u1ed9ng" in expanded
 
+
+def test_annual_leave_query_expands_to_article_113_terms():
+    expanded = expand_query_for_retrieval(
+        "Người lao động được nghỉ hằng năm bao nhiêu ngày?",
+        "nguoi lao dong duoc nghi hang nam bao nhieu ngay",
+        "labor",
+    )
+    assert "Điều 113 Bộ luật Lao động" in expanded
+    assert "số ngày nghỉ hằng năm" in expanded
+
+
+def test_employee_termination_query_expands_to_article_35_terms():
+    expanded = expand_query_for_retrieval(
+        "Khi nào người lao động được đơn phương chấm dứt hợp đồng lao động?",
+        "khi nao nguoi lao dong duoc don phuong cham dut hop dong lao dong",
+        "labor",
+    )
+    assert "Điều 35" in expanded
+    assert "thời hạn báo trước" in expanded
+
 def test_accounting_query_expands_to_canonical_terms():
     expanded = expand_query_for_retrieval(
         "Lu\u1eadt K\u1ebf to\u00e1n quy \u0111\u1ecbnh nh\u1eefng nguy\u00ean t\u1eafc k\u1ebf to\u00e1n n\u00e0o",

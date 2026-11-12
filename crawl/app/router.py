@@ -296,6 +296,7 @@ def route_to_agents(state: RouterState) -> list[Send] | str:
             "original_query": clean_query(classification["query"]),
             "k": state.get("k", 5),
             "classification": classification,
+            "sub_queries": classification.get("sub_queries", []),
         }))
     return sends or END
 
@@ -308,8 +309,12 @@ def _run_agent(
     classification = state.get("classification", {})
     query = clean_query(state.get("query") or classification.get("query", ""))
     k = state.get("k", 5)
+    sub_queries = classification.get("sub_queries", [])
     try:
-        result = agent_runner(query, k)
+        if sub_queries:
+            result = agent_runner(query, k, sub_queries=sub_queries)
+        else:
+            result = agent_runner(query, k)
         output = AgentOutput(
             domain=public_domain,
             query=clean_query(str(result.get("query", query))),
@@ -358,6 +363,8 @@ NGUYÊN TẮC CỐT LÕI:
 1. TRUNG THỰC VỚI CĂN CỨ PHÁP LÝ (GROUNDEDNESS):
    - Chỉ sử dụng các điều luật, quy định, số hiệu văn bản (Nghị định, Luật, Thông tư, Điều, Khoản) đã xuất hiện trong kết quả tra cứu của từng nhánh.
    - TUYỆT ĐỐI KHÔNG tự bịa đặt, suy đoán thêm số hiệu văn bản, điều khoản, mức phạt, mức bồi thường hoặc thời hạn ngoài dữ liệu được cung cấp.
+   - Giữ nguyên số tiền, tỷ lệ, ngày tháng và thời hạn trong câu trả lời đã được các nhánh kiểm tra; không đổi đơn vị hoặc tự tính lại.
+   - Nếu metadata hiệu lực là unknown hoặc trống, không khẳng định văn bản đang có hiệu lực.
 2. TỔNG HỢP VÀ LIÊN KẾT ĐA NGÀNH:
    - Phân tích mối liên hệ, sự tương tác hoặc ràng buộc pháp lý giữa các lĩnh vực đối với tình huống của người dùng.
    - Trình bày mạch lạc, liên kết chặt chẽ các vấn đề thay vì sao chép rời rạc.
@@ -427,21 +434,12 @@ def _synthesize_with_llm(
     verified_results: list[dict[str, Any]],
     settings: Settings,
 ) -> str:
-    if not getattr(settings, "openai_api_key", None):
-        return _fallback_synthesize(query, verified_results)
     try:
-        from langchain_openai import ChatOpenAI
-
-        model = ChatOpenAI(
-            model=settings.openai_model,
-            api_key=settings.openai_api_key,
-            temperature=0,
-        ).with_structured_output(SynthesizerPayload)
+        model = build_structured_model(settings, SynthesizerPayload)
         user_prompt = _build_synthesizer_user_prompt(query, verified_results)
-        payload = model.invoke([
-            {"role": "system", "content": SYNTHESIZER_SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ])
+        payload = model.invoke(f"{SYNTHESIZER_SYSTEM_PROMPT}\n\n{user_prompt}")
+        if not isinstance(payload, SynthesizerPayload):
+            payload = SynthesizerPayload.model_validate(payload)
         if hasattr(payload, "answer") and payload.answer:
             return payload.answer.strip()
         if isinstance(payload, str) and payload.strip():
@@ -505,9 +503,22 @@ def synthesize_results(state: RouterState) -> dict[str, Any]:
         raw_answer = _synthesize_with_llm(query, verified, get_settings())
 
     combined_citations = _deduplicate_citations(verified)
+    # Domain answers have already passed the evidence-level quantitative
+    # guardrail. Use them as the allowed numeric fact set for synthesis so the
+    # final model cannot invent or alter amounts, dates, durations, or rates.
+    synthesis_evidence = [
+        {
+            "document_id": citation.get("document_id"),
+            "citation": citation,
+            "text": str(result.get("answer", "")),
+        }
+        for result in verified
+        for citation in result.get("citations", [])
+    ]
     guardrail_result = verify_citations_guardrail(
         answer=raw_answer,
-        evidence=combined_citations,
+        evidence=synthesis_evidence,
+        verify_quantitative_claims=True,
     )
 
     if guardrail_result.status != "verified":

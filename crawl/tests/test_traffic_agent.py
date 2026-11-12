@@ -80,6 +80,94 @@ def test_search_tool_is_locked_to_traffic(monkeypatch):
     assert result[0]["document_id"] == "t1"
 
 
+def test_motorcycle_alcohol_search_uses_only_article_7_penalty_clauses(monkeypatch):
+    records = [
+        ("low", "Mức phạt nồng độ cồn.", {"domain": "traffic", "so_hieu": "168/2024/NĐ-CP", "dieu": "Điều 7", "khoan": "Khoản 6", "source": "https://example/Nghi-dinh-168-2024-ND-CP.aspx"}),
+        ("medium", "Mức phạt nồng độ cồn.", {"domain": "traffic", "so_hieu": "168/2024/NĐ-CP", "dieu": "Điều 7", "khoan": "Khoản 8", "source": "https://example/Nghi-dinh-168-2024-ND-CP.aspx"}),
+        ("high", "Mức phạt nồng độ cồn.", {"domain": "traffic", "so_hieu": "168/2024/NĐ-CP", "dieu": "Điều 7", "khoan": "Khoản 9", "source": "https://example/Nghi-dinh-168-2024-ND-CP.aspx"}),
+        ("car", "Mức phạt nồng độ cồn.", {"domain": "traffic", "so_hieu": "168/2024/NĐ-CP", "dieu": "Điều 6", "khoan": "Khoản 9", "source": "https://example/Nghi-dinh-168-2024-ND-CP.aspx"}),
+        ("amendment", "Mức phạt nồng độ cồn.", {"domain": "traffic", "so_hieu": "168/2024/NĐ-CP", "dieu": "Điều 7", "khoan": "Khoản 9", "source": "https://example/Nghi-dinh-238-2026-ND-CP.aspx"}),
+    ]
+
+    class Store:
+        def get(self, *, where, include):
+            assert where["$and"][1] == {"so_hieu": "168/2024/NĐ-CP"}
+            return {
+                "ids": [record[0] for record in records],
+                "documents": [record[1] for record in records],
+                "metadatas": [record[2] for record in records],
+            }
+
+    monkeypatch.setattr(traffic_agent, "get_settings", lambda: SimpleNamespace())
+    monkeypatch.setattr(traffic_agent, "get_vectorstore", lambda _settings, _domain: Store())
+    result = traffic_agent.search_traffic_law(
+        "Người điều khiển xe mô tô, xe gắn máy vi phạm nồng độ cồn bị phạt bao nhiêu?"
+    )
+
+    assert [item["document_id"] for item in result] == ["low", "medium", "high"]
+
+
+def test_motorcycle_alcohol_agent_drops_broad_router_subqueries(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(traffic_agent, "get_settings", lambda: SimpleNamespace())
+
+    def fake_run_domain_agent(*args, **kwargs):
+        captured["sub_queries"] = kwargs.get("sub_queries")
+        return {"status": "insufficient_evidence", "citations": []}
+
+    monkeypatch.setattr(traffic_agent, "run_domain_agent", fake_run_domain_agent)
+    traffic_agent.run_traffic_agent(
+        "Mức phạt nồng độ cồn xe máy?",
+        model=object(),
+        sub_queries=["nồng độ cồn ô tô"],
+    )
+
+    assert captured["sub_queries"] is None
+
+
+def test_motorcycle_speed_search_uses_only_article_7_clause_4(monkeypatch):
+    record = (
+        "speed-10-20",
+        "Điều 7 Khoản 4: Phạt tiền từ 800.000 đồng đến 1.000.000 đồng đối với xe mô tô chạy quá tốc độ từ 10 km/h đến 20 km/h.",
+        {
+            "domain": "traffic",
+            "so_hieu": "168/2024/NĐ-CP",
+            "dieu": "Điều 7",
+            "khoan": "Khoản 4",
+            "source": "https://example/Nghi-dinh-168-2024-ND-CP.aspx",
+        },
+    )
+
+    class Store:
+        def get(self, *, where, include):
+            assert {"khoan": "Khoản 4"} in where["$and"]
+            return {"ids": [record[0]], "documents": [record[1]], "metadatas": [record[2]]}
+
+    monkeypatch.setattr(traffic_agent, "get_settings", lambda: SimpleNamespace())
+    monkeypatch.setattr(traffic_agent, "get_vectorstore", lambda _settings, _domain: Store())
+    result = traffic_agent.search_traffic_law("Xe máy chạy quá tốc độ từ 10 đến 20 km/h bị phạt bao nhiêu?")
+
+    assert [item["document_id"] for item in result] == ["speed-10-20"]
+
+
+def test_motorcycle_speed_agent_drops_broad_router_subqueries(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(traffic_agent, "get_settings", lambda: SimpleNamespace())
+
+    def fake_run_domain_agent(*args, **kwargs):
+        captured["sub_queries"] = kwargs.get("sub_queries")
+        return {"status": "insufficient_evidence", "citations": []}
+
+    monkeypatch.setattr(traffic_agent, "run_domain_agent", fake_run_domain_agent)
+    traffic_agent.run_traffic_agent(
+        "Xe máy chạy quá tốc độ từ 10 đến 20 km/h bị phạt bao nhiêu?",
+        model=object(),
+        sub_queries=["tốc độ ô tô"],
+    )
+
+    assert captured["sub_queries"] is None
+
+
 def test_traffic_agent_endpoint(monkeypatch):
     expected = {"query": "Mức phạt?", "answer": "ok", "status": "verified", "citations": []}
     monkeypatch.setattr("app.main.run_traffic_agent", lambda query, k: expected)
