@@ -110,7 +110,7 @@ function storedMessageToMessage(item: StoredMessage): Message | null {
 const suggestions = [
   "Người lao động được nghỉ phép năm bao nhiêu ngày?",
   "Mức phạt nồng độ cồn khi lái xe máy là bao nhiêu?",
-  "Thuế thu nhập cá nhân được tính thế nào?",
+  "Luật Kế toán quy định thế nào về chứng từ kế toán?",
 ];
 
 function statusLabel(status: string) {
@@ -749,32 +749,44 @@ export default function Home() {
             </div>
           ) : isEmpty ? (
             <div className="welcome">
-              <div className="eyebrow">
-                <span className="eyebrow-line" /> TRỢ LÝ PHÁP LUẬT VIỆT NAM
+              <div className="welcome-intro">
+                <div className="eyebrow">
+                  <span className="eyebrow-line" /> TRA CỨU PHÁP LUẬT VIỆT NAM
+                </div>
+                <h1>
+                  Tra cứu pháp luật
+                  <br />
+                  <em>có dẫn nguồn.</em>
+                </h1>
+                <p className="welcome-copy">
+                  Đặt câu hỏi bằng ngôn ngữ tự nhiên. TrustAgent tìm văn bản và điều khoản liên quan
+                  trong dữ liệu hiện có, rồi trình bày câu trả lời cùng căn cứ khi tìm thấy.
+                </p>
+                <p className="welcome-scope">
+                  <span>Dữ liệu hiện có</span> Giao thông <i /> Lao động <i /> Kế toán
+                </p>
               </div>
-              <h1>
-                Hiểu luật,
-                <br />
-                <em>vững lựa chọn.</em>
-              </h1>
-              <p className="welcome-copy">
-                Đặt câu hỏi để tra cứu quy định pháp luật, kèm căn cứ từ văn bản liên quan.
-              </p>
-              <div className="suggestion-label">BẮT ĐẦU VỚI MỘT CÂU HỎI</div>
-              <div className="suggestions">
-                {suggestions.map((suggestion, index) => (
-                  <button
-                    type="button"
-                    className="suggestion"
-                    key={suggestion}
-                    disabled={loading || loadingHistory}
-                    onClick={() => void submitQuestion(suggestion)}
-                  >
-                    <span className="suggestion-number">0{index + 1}</span>
-                    <span>{suggestion}</span>
-                    <span className="suggestion-arrow">↗</span>
-                  </button>
-                ))}
+              <div className="welcome-start">
+                <div className="suggestion-label">THỬ MỘT CÂU HỎI</div>
+                <div className="suggestions">
+                  {suggestions.map((suggestion, index) => (
+                    <button
+                      type="button"
+                      className="suggestion"
+                      key={suggestion}
+                      disabled={loading || loadingHistory}
+                      onClick={() => void submitQuestion(suggestion)}
+                    >
+                      <span className="suggestion-number">0{index + 1}</span>
+                      <span>{suggestion}</span>
+                      <span className="suggestion-arrow" aria-hidden="true">↗</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="welcome-disclaimer">
+                  Thông tin chỉ mang tính tham khảo. Hãy kiểm tra văn bản gốc và hiệu lực trước khi
+                  áp dụng.
+                </p>
               </div>
             </div>
           ) : (
@@ -942,16 +954,11 @@ export default function Home() {
                 Việt Nam ứng dụng công nghệ RAG (Retrieval-Augmented Generation) đa lĩnh vực:
               </p>
               <ul>
+                <li><strong>Giao thông:</strong> dữ liệu văn bản giao thông đường bộ.</li>
+                <li><strong>Lao động:</strong> dữ liệu văn bản lao động.</li>
                 <li>
-                  <strong>Giao thông đường bộ:</strong> Luật Trật tự ATGT đường bộ 2024, Luật Đường bộ
-                  2024, Nghị định 168/2024/NĐ-CP, Nghị định 100/2019/NĐ-CP.
-                </li>
-                <li>
-                  <strong>Lao động & Tiền lương:</strong> Bộ luật Lao động 2019, các nghị định về tiền
-                  lương và bảo hiểm xã hội.
-                </li>
-                <li>
-                  <strong>Thuế & Kế toán:</strong> Luật Quản lý thuế, thuế TNCN, thuế GTGT.
+                  <strong>Kế toán:</strong> dữ liệu hiện có chủ yếu là Luật Kế toán 2015; chưa có bộ
+                  dữ liệu luật thuế chuyên biệt.
                 </li>
               </ul>
               <p>
@@ -959,8 +966,8 @@ export default function Home() {
               </p>
               <ul>
                 <li>
-                  <em>Có căn cứ:</em> Trả lời được đối chiếu và trích xuất trực tiếp từ điều khoản văn
-                  bản pháp luật hiện hành.
+                  <em>Có căn cứ:</em> Câu trả lời có tài liệu được truy xuất làm căn cứ. Trạng thái
+                  này không tự xác nhận văn bản còn hiệu lực hoặc bảo đảm tính đúng đắn pháp lý.
                 </li>
                 <li>
                   <em>Cần làm rõ:</em> Câu hỏi có nhiều tình huống pháp lý hoặc cần thêm chi tiết để
@@ -975,9 +982,9 @@ export default function Home() {
                 </li>
               </ul>
               <p>
-                <em>Lưu ý quan trọng:</em> Toàn bộ thông tin do AI tổng hợp từ văn bản quy phạm pháp
-                luật hiện hành nhằm mục đích tham khảo, không thay thế văn bản pháp lý chính thức
-                hoặc ý kiến tư vấn từ luật sư/cơ quan có thẩm quyền.
+                <em>Lưu ý quan trọng:</em> Thông tin do AI tổng hợp từ dữ liệu hiện có chỉ nhằm mục
+                đích tham khảo, không thay thế việc kiểm tra văn bản chính thức còn hiệu lực hoặc ý
+                kiến tư vấn từ luật sư/cơ quan có thẩm quyền.
               </p>
             </div>
             <div className="modal-footer">
