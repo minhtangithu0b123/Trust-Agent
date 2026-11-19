@@ -144,14 +144,14 @@ Embedding mặc định: `sentence-transformers/paraphrase-multilingual-MiniLM-L
 
 Bộ benchmark có 300 cases, chia đều 100 câu/domain. Một lần chạy local ghi nhận:
 
-| Domain | Recall@1 | Recall@5 |
-|---|---:|---:|
-| Traffic | 37/100 = 0.37 | 59/100 = 0.59 |
-| Labor | 85/100 = 0.85 | 93/100 = 0.93 |
-| Accounting | 39/100 = 0.39 | 67/100 = 0.67 |
-| **MRR tổng** | **0.5367** | **0.6139** |
+| Domain | Recall@1 | Recall@3 | Recall@5 | Corpus coverage |
+|---|---:|---:|---:|---:|
+| Traffic | 75/100 = 0.75 | 87/100 = 0.87 | 89/100 = 0.89 | 95/100 = 0.95 |
+| Labor | 93/100 = 0.93 | 95/100 = 0.95 | 95/100 = 0.95 | 100/100 = 1.00 |
+| Accounting | 82/100 = 0.82 | 91/100 = 0.91 | 97/100 = 0.97 | 100/100 = 1.00 |
+| **MRR tổng** | **0.8333** | **0.8689** | **0.8751** | — |
 
-Đây là retrieval benchmark, không phải độ chính xác pháp lý tổng quát. Traffic và accounting thấp hơn labor, cho thấy cần tiếp tục cải thiện corpus, chunking, metadata và thuật ngữ truy vấn.
+Đây là retrieval benchmark, không phải độ chính xác pháp lý tổng quát. `Corpus coverage` đo xem evidence phù hợp có tồn tại ở đâu đó trong toàn bộ corpus hay không; nó giúp phân biệt lỗi thiếu dữ liệu với lỗi xếp hạng retrieval. Kết quả mới được chạy local trên bộ `benchmark_v3.jsonl` gồm 300 cases.
 
 | Metric | Trạng thái |
 |---|---|
