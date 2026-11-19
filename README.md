@@ -173,11 +173,6 @@ flowchart TD
     GUARD -. records .-> PROVENANCE
     PROXY -. paid request .-> X402 -. verifies .-> API
 ```
-
-Frontend có thể chạy trên Vercel; backend chạy local, Docker hoặc container platform. API proxy giữ secret LLM ở server-side.
-
-**Ký hiệu:** `-->` luồng xử lý chính · `-.->` luồng phụ hoặc side effect · `([ ])` điểm đầu/cuối · `[( )]` storage/database · `{ }` decision.
-
 ## Agent Workflow
 
 ```mermaid
@@ -239,30 +234,23 @@ flowchart TD
     INSUFFICIENT -. save status .-> MEMORY
 ```
 
-Các trạng thái chính: `verified`, `needs_clarification`, `insufficient_evidence` và `provider_error`.
-
-**Ký hiệu:** `-->` luồng xử lý chính · `-.->` ghi memory/side effect · `{ }` decision · `([ ])` trạng thái kết thúc · `[( )]` persistent memory.
-
 ## Technical Implementation
 
 | Technique | Cách dùng | Trạng thái |
 |---|---|---|
-| Query classification | Router chọn domain và fallback khi provider lỗi | Đã triển khai |
-| Clarification gate | Rule deterministic yêu cầu bổ sung ngữ cảnh | Đã triển khai |
-| Hybrid search | Chroma semantic search + BM25 keyword search | Đã triển khai |
-| Reciprocal Rank Fusion | Hợp nhất dense/sparse theo `1 / (k + rank)` | Đã triển khai |
-| Metadata filtering | Lọc domain, văn bản, Điều, Khoản, phương tiện | Đã triển khai |
-| Self-query retrieval | Parser tạo semantic query và metadata constraints | Đã triển khai |
-| Query expansion | Bổ sung thuật ngữ chuẩn, không thay câu hỏi gốc | Đã triển khai |
-| Query decomposition | Tách các ý/hành vi trong câu hỏi nhiều phần | Đã triển khai |
-| Parent-document retrieval | Thêm sibling/parent context, giữ child đứng đầu | Đã triển khai |
-| Cross-encoder reranking | Rerank candidate khi query phức tạp | Đã triển khai, tùy chọn |
-| Conversation memory | SQLite conversation store và LangGraph checkpoint | Đã triển khai |
-| Reflection / Self-RAG | Critique evidence và tìm facet còn thiếu | Đã triển khai |
-| Citation verification | Citation lấy từ metadata thật | Đã triển khai |
-| Quantitative guardrail | Kiểm tra tiền, ngày, điểm, tốc độ, nồng độ và đơn vị | Đã triển khai |
+| Query classification | Router chọn domain và fallback khi provider lỗi | 
+| Clarification gate | Rule deterministic yêu cầu bổ sung ngữ cảnh |
+| Hybrid search | Chroma semantic search + BM25 keyword search | 
+| Reciprocal Rank Fusion | Hợp nhất dense/sparse theo `1 / (k + rank)` | 
+| Metadata filtering | Lọc domain, văn bản, Điều, Khoản, phương tiện |
+| Self-query retrieval | Parser tạo semantic query và metadata constraints | 
+| Query decomposition | Tách các ý/hành vi trong câu hỏi nhiều phần | 
+| Parent-document retrieval | Thêm sibling/parent context, giữ child đứng đầu |
+| Conversation memory | SQLite conversation store và LangGraph checkpoint |
+| Reflection / Self-RAG | Critique evidence và tìm facet còn thiếu |
+| Citation verification | Citation lấy từ metadata thật | 
+| Quantitative guardrail | Kiểm tra tiền, ngày, điểm, tốc độ, nồng độ và đơn vị | 
 
-Query decomposition, reflection và self-RAG hiện là controller deterministic hỗ trợ pipeline; không phải vòng suy luận tự trị không giới hạn.
 
 ## Dataset & Data Pipeline
 
@@ -272,9 +260,6 @@ Query decomposition, reflection và self-RAG hiện là controller deterministic
 | Labor | `crawl/data/raw/lao_dong.json` | `legal_labor` | 2,745 |
 | Tax | `crawl/data/raw/thue.json` | `legal_accounting` | 1,421 |
 
-Các con số có thể thay đổi sau crawl/clean. Crawler hỗ trợ HTML/PDF/TXT/Markdown, sửa encoding và chuẩn hóa schema. Chunk được tổ chức theo văn bản, chương, điều và khoản; bảng phạt dài vẫn là điểm cần cải thiện.
-
-Metadata chính:
 
 ```text
 id, domain, source, ten_van_ban, so_hieu,
@@ -282,8 +267,6 @@ chuong, dieu, khoan, tieu_de_dieu,
 document_type, article_number, clause_number,
 structure_key, status, effective_from
 ```
-
-Embedding mặc định: `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`. Ingest kiểm tra ID/nội dung và bỏ qua bản ghi trùng.
 
 ## Tech Stack
 
