@@ -1090,7 +1090,7 @@ export default function Home() {
                   lương và bảo hiểm xã hội.
                 </li>
                 <li>
-                  <strong>Thuế & Kế toán:</strong> Luật Quản lý thuế, thuế TNCN, thuế GTGT.
+                  <strong>Thuế:</strong> Luật Quản lý thuế, thuế TNCN, thuế GTGT.
                 </li>
               </ul>
               <p>

@@ -77,7 +77,7 @@ Câu hỏi + lịch sử hội thoại
 
 ## Key Features
 
-- Ba domain agent: `traffic`, `labor`, `accounting`.
+- Ba domain agent: `traffic`, `labor`, `tax`.
 - Query routing bằng LLM classifier và keyword fallback.
 - Overview cho câu hỏi chung, dựa trên metadata thay vì top-k ngẫu nhiên.
 - Conversation memory qua SQLite/LangGraph checkpoint.
@@ -99,7 +99,7 @@ flowchart LR
     API --> R[LangGraph Router]
     R --> T[Traffic Agent]
     R --> L[Labor Agent]
-    R --> A[Accounting/Tax Agent]
+    R --> A[Tax Agent]
     T --> H[Hybrid Retriever]
     L --> H
     A --> H
@@ -171,7 +171,7 @@ Query decomposition, reflection và self-RAG hiện là controller deterministic
 |---|---|---|---:|
 | Traffic | `crawl/data/raw/giao thông.json` | `legal_traffic` | 3,048 |
 | Labor | `crawl/data/raw/lao_dong.json` | `legal_labor` | 2,745 |
-| Tax / accounting | `crawl/data/raw/thue.json` | `legal_accounting` | 1,421 |
+| Tax | `crawl/data/raw/thue.json` | `legal_accounting` | 1,421 |
 
 Các con số có thể thay đổi sau crawl/clean. Crawler hỗ trợ HTML/PDF/TXT/Markdown, sửa encoding và chuẩn hóa schema. Chunk được tổ chức theo văn bản, chương, điều và khoản; bảng phạt dài vẫn là điểm cần cải thiện.
 
@@ -235,7 +235,7 @@ Trust-Agent/
 │  ├─ app/
 │  │  ├─ main.py                 # FastAPI endpoints
 │  │  ├─ router.py               # LangGraph orchestration
-│  │  ├─ agents/                 # Traffic, labor, accounting agents
+│  │  ├─ agents/                 # Traffic, labor, tax agents
 │  │  ├─ retrieval.py            # BM25, Chroma, RRF, reranking
 │  │  ├─ self_query.py            # Metadata query planning
 │  │  ├─ self_rag.py              # Evidence critique
@@ -298,7 +298,7 @@ Frontend: `http://localhost:3000`.
 cd D:\Trust-AGENT\crawl
 \.venv\Scripts\python.exe scripts\ingest_domain.py traffic
 \.venv\Scripts\python.exe scripts\ingest_domain.py labor
-\.venv\Scripts\python.exe scripts\ingest_domain.py accounting
+\.venv\Scripts\python.exe scripts\ingest_domain.py tax
 ```
 
 ### Docker
@@ -377,7 +377,7 @@ Frontend cung cấp giao diện chat, lịch sử hội thoại, citation và tr
 
 - Chất lượng phụ thuộc vào độ đầy đủ, độ mới, encoding, chunking và metadata của corpus.
 - Bảng phạt giao thông dài và câu hỏi phân biệt ô tô/xe máy khó hơn các câu hỏi lao động có cấu trúc rõ.
-- `accounting` là tên kỹ thuật tương thích; dữ liệu chính là thuế/hóa đơn, chưa phải corpus kế toán độc lập đầy đủ.
+- Public domain là `tax`/“Thuế”; key nội bộ `accounting` vẫn được giữ để tương thích; dữ liệu chính là thuế/hóa đơn, chưa phải corpus kế toán độc lập đầy đủ.
 - Metadata hiệu lực thời gian chưa đồng đều; `status=unknown` không xác nhận văn bản còn hiệu lực.
 - Reranker tăng chất lượng trong một số truy vấn nhưng làm tăng latency và RAM/VRAM.
 - Recall/MRR trên benchmark nhỏ không đại diện cho toàn bộ chất lượng pháp lý thực tế.
@@ -386,7 +386,7 @@ Frontend cung cấp giao diện chat, lịch sử hội thoại, citation và tr
 
 - Chuẩn hóa ngày ban hành, ngày hiệu lực và ngày hết hiệu lực.
 - Tách bảng phạt dài thành atomic chunks theo hành vi và loại phương tiện.
-- Bổ sung/kiểm định corpus traffic và tax/accounting.
+- Bổ sung/kiểm định corpus traffic và tax.
 - Benchmark Precision@K, citation accuracy, faithfulness, answer relevance và latency p50/p95.
 - So sánh định lượng RRF, RRF + reranker và parent-context retrieval.
 - Temporal retrieval theo thời điểm xảy ra hành vi.
