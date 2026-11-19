@@ -93,27 +93,48 @@ Câu hỏi + lịch sử hội thoại
 
 ```mermaid
 flowchart LR
-    U[User] --> FE[Next.js Frontend]
-    FE --> P[Next.js API Proxy]
-    P --> API[FastAPI]
-    API --> R[LangGraph Router]
-    R --> T[Traffic Agent]
-    R --> L[Labor Agent]
-    R --> A[Tax Agent]
-    T --> H[Hybrid Retriever]
-    L --> H
-    A --> H
-    H --> B[BM25]
-    H --> V[Chroma Vector Search]
-    B --> F[RRF Fusion]
-    V --> F
-    F --> M[Metadata / Self-query Filter]
-    M --> PC[Parent Context]
-    PC --> RR[Optional Cross-Encoder]
-    RR --> G[Citation Guardrail]
-    G --> S[Reflection / Self-RAG]
-    S --> LLM[OpenAI or Gemini]
-    LLM --> P
+    U[User] --> FE
+
+    subgraph CLIENT[Client Layer]
+        direction TB
+        FE[Next.js Frontend]
+        PROXY[Next.js API Proxy]
+        FE --> PROXY
+    end
+
+    subgraph ORCH[Application Layer]
+        direction TB
+        API[FastAPI API]
+        ROUTER[LangGraph Router]
+        AGENTS[Domain Agents<br/>Traffic · Labor · Tax]
+        API --> ROUTER --> AGENTS
+    end
+
+    subgraph RETRIEVAL[Retrieval Layer]
+        direction TB
+        QUERY[Query Planning<br/>Normalize · Expand · Decompose]
+        SEARCH[Hybrid Search<br/>Chroma + BM25]
+        FUSE[RRF Fusion]
+        FILTER[Metadata / Self-query Filter]
+        CONTEXT[Parent Context]
+        RERANK[Optional Cross-Encoder]
+        QUERY --> SEARCH --> FUSE --> FILTER --> CONTEXT --> RERANK
+    end
+
+    subgraph VERIFY[Answer Safety Layer]
+        direction TB
+        EVIDENCE[Evidence Set]
+        REFLECT[Reflection / Self-RAG]
+        GUARD[Citation & Quantitative Guardrail]
+        EVIDENCE --> REFLECT --> GUARD
+    end
+
+    MODEL[OpenAI or Gemini<br/>Grounded Answer]
+
+    PROXY --> API
+    AGENTS --> QUERY
+    RERANK --> EVIDENCE
+    GUARD --> MODEL --> PROXY
 ```
 
 Frontend có thể chạy trên Vercel; backend chạy local, Docker hoặc container platform. API proxy giữ secret LLM ở server-side.
