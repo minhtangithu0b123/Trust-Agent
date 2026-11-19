@@ -69,6 +69,25 @@ def _vehicle_groups(routing_query: str) -> set[str]:
     return groups
 
 
+def _traffic_topic(routing_query: str) -> str | None:
+    """Map common traffic wording to a normalized clause topic."""
+    if "mu bao hiem" in routing_query or "doi mu" in routing_query:
+        return "helmet"
+    if "dien thoai" in routing_query or "thiet bi dien tu" in routing_query:
+        return "phone_use"
+    if "cho 2 nguoi" in routing_query or "cho theo 2 nguoi" in routing_query or "cho qua so nguoi" in routing_query:
+        return "passenger_overload"
+    if "vuot den do" in routing_query or "den tin hieu" in routing_query:
+        return "red_light"
+    if "day an toan" in routing_query or "day bao hiem" in routing_query:
+        return "seatbelt"
+    if "nong do con" in routing_query or "ruou bia" in routing_query:
+        return "alcohol"
+    if "toc do" in routing_query or "qua toc" in routing_query:
+        return "speed"
+    return None
+
+
 def build_query_plan(query: str, domain: str) -> QueryPlan:
     """Build a safe semantic query plus validated metadata constraints."""
     if domain not in CANONICAL_DOMAINS:
@@ -97,6 +116,13 @@ def build_query_plan(query: str, domain: str) -> QueryPlan:
         if len(groups) == 1:
             group = next(iter(groups))
             metadata_filter["dieu"] = _TRAFFIC_VEHICLE_ARTICLES[group]
+            metadata_filter["dieu"] = {
+                "specialized_vehicle": "Điều 8",
+                "car": "Điều 6",
+                "motorbike": "Điều 7",
+                "pedestrian": "Điều 9",
+                "bicycle": "Điều 9",
+            }[group]
             # The same offence is placed in different clauses by vehicle
             # class in Decree 168. Prevent a generic article clause from
             # outranking the actual red-light provision.
@@ -104,6 +130,9 @@ def build_query_plan(query: str, domain: str) -> QueryPlan:
                 metadata_filter["khoan"] = "Khoản 9" if group == "car" else "Khoản 7"
             elif "mu bao hiem" in routing_query and group == "motorbike":
                 metadata_filter["khoan"] = "Khoản 2"
+            topic = _traffic_topic(routing_query)
+            if topic:
+                metadata_filter["traffic_topics"] = topic
 
     # These articles are the legal cluster for trial-period questions. Keep
     # all three because the answer may require the maximum duration, contract

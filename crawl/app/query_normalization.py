@@ -18,7 +18,9 @@ def normalize_for_routing(text: str) -> str:
         character for character in decomposed
         if unicodedata.category(character) != "Mn"
     )
-    folded = without_marks.replace("đ", "d")
+    # Vietnamese "đ" does not decompose under NFD. Also tolerate the older
+    # UTF-8-as-Latin-1 spelling present in some crawled records.
+    folded = without_marks.replace("đ", "d").replace("Đ", "D").replace("Ä‘", "d")
     return _WHITESPACE.sub(" ", folded).strip()
 
 
@@ -64,6 +66,10 @@ _RETRIEVAL_EXPANSIONS = {
 
 _RETRIEVAL_EXPANSIONS["traffic"] = _RETRIEVAL_EXPANSIONS["traffic"] + (
     ("mu bao hiem", "không đội mũ bảo hiểm", "Điều khiển xe mô tô, xe gắn máy"),
+    ("cho 2 nguoi", "chở theo 02 người", "Điều 7 Khoản 2 điểm g"),
+    ("cho theo 2 nguoi", "chở theo 02 người", "Điều 7 Khoản 2 điểm g"),
+    ("cho qua so nguoi", "chở quá số người quy định", "Điều 7"),
+    ("dien thoai", "sử dụng điện thoại khi điều khiển xe", "Điều 7 Khoản 4 điểm đ"),
     ("toc do", "vượt quá tốc độ", "giới hạn tốc độ"),
     ("10 20 km h", "vượt quá tốc độ từ 10 km/h đến 20 km/h"),
     ("025 04 mg l", "nồng độ cồn từ 0,25 đến 0,4 mg/l khí thở"),

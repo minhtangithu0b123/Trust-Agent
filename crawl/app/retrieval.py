@@ -121,6 +121,10 @@ class HybridRetriever:
             def matches(value: object) -> bool:
                 expected_text = normalize(str(value))
                 actual_text = normalize(actual)
+                if key in {"traffic_topics", "topic_tags"}:
+                    return expected_text in {
+                        token.strip() for token in actual_text.split("|") if token.strip()
+                    }
                 if key in {"dieu", "khoan"}:
                     return actual_text == expected_text or actual_text.startswith(expected_text + " ") or actual_text.startswith(expected_text + ".")
                 return actual_text == expected_text
@@ -251,6 +255,18 @@ class HybridRetriever:
 
             related = list(sibling_by_clause.values())
             routing_query = normalize_for_routing(query)
+            target_topic = str(metadata.get("traffic_topics", "")).strip()
+            if self.domain == "traffic" and target_topic:
+                # Do not reintroduce another offence from the same article
+                # (for example helmet evidence in a passenger query).
+                related = [
+                    document for document in related
+                    if target_topic in {
+                        token.strip()
+                        for token in str(document.metadata.get("traffic_topics", "")).split("|")
+                        if token.strip()
+                    }
+                ]
             selected_is_penalty = "phạt tiền" in result.document.page_content.casefold()
             if selected_is_penalty:
                 # A penalty clause already contains the applicable fine. Other
@@ -411,6 +427,20 @@ class HybridRetriever:
                 metadata_filter={**metadata_filter, "domain": self.domain},
             )
         )
+        # Keep old indexes usable during a rolling ingest. New indexes carry
+        # traffic_violation; old ones do not, so temporarily use the normal
+        # vehicle/article filters until metadata is refreshed.
+        if "traffic_topics" in plan.metadata_filter and not any(
+            document.metadata.get("traffic_topics") for document in self._documents.values()
+        ):
+            plan = QueryPlan(
+                semantic_query=plan.semantic_query,
+                metadata_filter={
+                    key: value
+                    for key, value in plan.metadata_filter.items()
+                    if key != "traffic_topics"
+                },
+            )
         dense_docs = self.store.similarity_search(
             plan.semantic_query,
             k=candidate_k,

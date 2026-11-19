@@ -1,6 +1,7 @@
 import hashlib
 import json
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -76,6 +77,30 @@ def _topic_tags(domain: str, text: str) -> str:
         tag for tag, signals in groups.get(domain, {}).items()
         if any(signal in value for signal in signals)
     )
+
+
+def _traffic_topics(text: str) -> list[str]:
+    """Assign all deterministic traffic topics present in a legal clause.
+
+    Retrieval uses this field as a soft semantic guard.  It prevents a
+    question about passengers from being answered with a nearby helmet or
+    red-light clause while keeping the raw legal text unchanged.
+    """
+    value = fix_text(str(text)).casefold()
+    decomposed = unicodedata.normalize("NFD", value)
+    value = "".join(char for char in decomposed if unicodedata.category(char) != "Mn")
+    value = value.replace("đ", "d")
+    topics: list[str] = []
+    checks = (
+        ("helmet", "mu bao hiem" in value or "cai quai" in value),
+        ("phone_use", "dien thoai" in value or "thiet bi dien tu" in value),
+        ("passenger_overload", "cho theo 02 nguoi" in value or "cho theo 03 nguoi" in value or "cho tu 03 nguoi" in value),
+        ("red_light", "den tin hieu" in value or "den do" in value),
+        ("seatbelt", "day an toan" in value),
+        ("alcohol", "nong do con" in value or "ruou bia" in value),
+        ("speed", "toc do" in value),
+    )
+    return [topic for topic, matched in checks if matched]
 
 
 def repair_text(value: Any) -> str:
@@ -177,6 +202,12 @@ def normalize_record(
         "topic_tags": _topic_tags(domain, f"{values['tieu_de_dieu']} {values['text']}"),
     })
     if domain == "traffic":
+        traffic_topics = _traffic_topics(
+            f"{values['tieu_de_dieu']} {values['text']}"
+        )
+        base_metadata["traffic_topics"] = "|".join(traffic_topics)
+        # Backward-compatible primary label for older consumers.
+        base_metadata["traffic_violation"] = traffic_topics[0] if traffic_topics else ""
         base_metadata["vehicle_class"] = {
             "6": "car",
             "7": "motorbike",
