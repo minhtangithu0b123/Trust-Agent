@@ -295,6 +295,58 @@ Embedding mặc định: `sentence-transformers/paraphrase-multilingual-MiniLM-L
 - SQLite local; PostgreSQL có thể cấu hình qua `DATABASE_URL`.
 - Docker Compose; Vercel frontend; `render.yaml` là blueprint tham khảo.
 
+## Models Used
+
+### 1. Language model for routing and domain agents
+
+The router classifier and the three domain agents use the provider selected by `LLM_PROVIDER`:
+
+| Component | Model | Configuration | Role |
+|---|---|---|---|
+| Router classification | OpenAI `gpt-4o-mini` or Gemini `gemini-3.5-flash-lite` | `OPENAI_MODEL` / `GEMINI_MODEL` | Classify domain and intent |
+| Traffic, Labor and Tax agents | Same configured provider/model | `LLM_PROVIDER` | Select tools, reason over retrieved evidence and return structured output |
+| Final multi-agent synthesis | OpenAI `gpt-4o-mini` when `OPENAI_API_KEY` is available | `OPENAI_MODEL` | Combine verified domain answers into one response |
+
+The model does not receive the whole legal corpus. It receives the user query and the evidence selected by retrieval. If the provider is unavailable, the system uses a safe fallback or returns `provider_error`/`insufficient_evidence` instead of inventing a legal answer.
+
+Example configuration:
+
+```env
+LLM_PROVIDER=openai
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_API_KEY=your-key
+```
+
+Gemini can be selected for routing and domain-agent generation:
+
+```env
+LLM_PROVIDER=gemini
+GEMINI_MODEL=gemini-3.5-flash-lite
+GEMINI_API_KEY=your-key
+```
+
+### 2. Embedding model
+
+```text
+sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+```
+
+This multilingual Sentence Transformer converts Vietnamese queries and legal chunks into vectors for Chroma semantic search. The default device is CPU; `EMBEDDING_DEVICE` can be changed when a compatible GPU environment is available. The embedding model is loaded lazily and cached by the vector-store layer.
+
+### 3. Cross-encoder reranker
+
+```text
+BAAI/bge-reranker-v2-m3
+```
+
+This model scores query-document pairs after hybrid retrieval. It is optional and disabled by default (`RERANKER_ENABLED=false`). When enabled, the system reranks only a candidate set, uses batching and falls back to RRF if the model cannot be loaded.
+
+### 4. Non-neural retrieval components
+
+- **BM25:** sparse keyword ranking for exact legal terms, article numbers, amounts and units.
+- **RRF:** deterministic rank fusion; not a model.
+- **Self-query, clarification, query expansion, decomposition and reflection:** rule-based controllers in the current implementation; they do not call an additional LLM.
+
 ## Evaluation & Benchmarks
 
 Bộ benchmark có 300 cases, chia đều 100 câu/domain. Một lần chạy local ghi nhận:
