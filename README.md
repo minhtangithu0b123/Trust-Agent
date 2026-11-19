@@ -92,49 +92,56 @@ Câu hỏi + lịch sử hội thoại
 ## System Architecture
 
 ```mermaid
-flowchart LR
-    U[User] --> FE
+flowchart TD
+    U([User])
 
-    subgraph CLIENT[Client Layer]
-        direction TB
-        FE[Next.js Frontend]
-        PROXY[Next.js API Proxy]
-        FE --> PROXY
+    subgraph CLIENT[1. Client Layer]
+        direction LR
+        FE[Next.js Frontend] --> PROXY[Next.js API Proxy]
     end
 
-    subgraph ORCH[Application Layer]
-        direction TB
-        API[FastAPI API]
-        ROUTER[LangGraph Router]
-        AGENTS[Domain Agents<br/>Traffic · Labor · Tax]
-        API --> ROUTER --> AGENTS
+    subgraph ORCH[2. Application & Agent Layer]
+        direction LR
+        API[FastAPI API] --> ROUTER[LangGraph Router] --> AGENTS[Domain Agents<br/>Traffic · Labor · Tax]
     end
 
-    subgraph RETRIEVAL[Retrieval Layer]
-        direction TB
-        QUERY[Query Planning<br/>Normalize · Expand · Decompose]
-        SEARCH[Hybrid Search<br/>Chroma + BM25]
-        FUSE[RRF Fusion]
-        FILTER[Metadata / Self-query Filter]
-        CONTEXT[Parent Context]
-        RERANK[Optional Cross-Encoder]
-        QUERY --> SEARCH --> FUSE --> FILTER --> CONTEXT --> RERANK
+    subgraph PLAN[3. Query Planning]
+        direction LR
+        NORMALIZE[Normalize Query] --> EXPAND[Expand / Decompose]
     end
 
-    subgraph VERIFY[Answer Safety Layer]
-        direction TB
-        EVIDENCE[Evidence Set]
-        REFLECT[Reflection / Self-RAG]
-        GUARD[Citation & Quantitative Guardrail]
-        EVIDENCE --> REFLECT --> GUARD
+    subgraph RETRIEVAL[4. Retrieval Layer]
+        direction LR
+        DENSE[Chroma<br/>Dense Search]
+        SPARSE[BM25<br/>Sparse Search]
+        RRF[RRF Fusion]
+        FILTER[Metadata<br/>Self-query Filter]
+        DENSE --> RRF
+        SPARSE --> RRF
+        RRF --> FILTER
+    end
+
+    subgraph CONTEXT[5. Context & Ranking]
+        direction LR
+        PARENT[Parent Context] --> RERANK[Optional<br/>Cross-Encoder]
+    end
+
+    subgraph SAFETY[6. Answer Safety]
+        direction LR
+        EVIDENCE[Evidence Set] --> REFLECT[Reflection<br/>Self-RAG] --> GUARD[Citation &<br/>Quantitative Guardrail]
     end
 
     MODEL[OpenAI or Gemini<br/>Grounded Answer]
 
+    U --> FE
     PROXY --> API
-    AGENTS --> QUERY
+    AGENTS --> NORMALIZE
+    EXPAND --> DENSE
+    EXPAND --> SPARSE
+    FILTER --> PARENT
     RERANK --> EVIDENCE
-    GUARD --> MODEL --> PROXY
+    GUARD --> MODEL
+    MODEL --> PROXY
 ```
 
 Frontend có thể chạy trên Vercel; backend chạy local, Docker hoặc container platform. API proxy giữ secret LLM ở server-side.
