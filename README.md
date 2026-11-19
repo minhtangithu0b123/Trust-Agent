@@ -1,9 +1,7 @@
 # Trust Agent
 
 Agentic RAG cho tra cứu pháp luật Việt Nam, tập trung vào ba nhóm dữ liệu: giao thông, lao động và thuế/hóa đơn. Hệ thống định tuyến câu hỏi đến agent chuyên trách, truy xuất evidence từ corpus nội bộ và tạo câu trả lời có citation. Khi evidence chưa đủ hoặc câu hỏi thiếu thông tin quan trọng, hệ thống trả về trạng thái an toàn thay vì tự đoán.
-
-> Thông tin do hệ thống cung cấp chỉ mang tính tham khảo, không thay thế tư vấn pháp lý chuyên nghiệp.
-
+.
 ## Project Overview
 
 Trust Agent tách routing, retrieval, generation và verification để giới hạn truy xuất trong đúng domain, kết hợp tìm kiếm ngữ nghĩa và từ khóa, tạo citation từ metadata thật và yêu cầu làm rõ khi thiếu thông tin.
@@ -20,7 +18,6 @@ Câu hỏi -> routing/intent -> clarification -> hybrid retrieval
 ## Key Features
 
 - Ba domain agent: `traffic`, `labor`, `accounting`.
-- Alias `tax` và `thue` cho domain đang dùng corpus `data/raw/thue.json`.
 - Query routing bằng LLM classifier và keyword fallback.
 - Overview cho câu hỏi chung, dựa trên metadata thay vì top-k ngẫu nhiên.
 - Conversation memory qua SQLite/LangGraph checkpoint.
@@ -28,7 +25,6 @@ Câu hỏi -> routing/intent -> clarification -> hybrid retrieval
 - Hybrid search: Chroma vector search + BM25 + RRF.
 - Self-query rule-based, vehicle-aware retrieval, query expansion và query decomposition.
 - Parent-context expansion cho ngữ cảnh điều khoản liên quan.
-- Cross-encoder reranking tùy chọn theo độ phức tạp.
 - Reflection/Self-RAG kiểm tra evidence.
 - Citation guardrail kiểm tra document ID, domain, Điều/Khoản và claim định lượng.
 - SSE streaming, lịch sử hội thoại, crawler và deduplication dữ liệu.
