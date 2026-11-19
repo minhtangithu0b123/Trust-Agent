@@ -95,7 +95,7 @@ Câu hỏi + lịch sử hội thoại
 
 The architecture diagram is authored in [D2](docs/assets/architecture.d2). It separates the request path from retrieval, generation/guardrails, persistence, and the optional x402 payment middleware.
 
-<!-- Legacy inline diagram retained outside the rendered README.
+<details hidden><summary>Legacy inline diagram</summary>
 ```mermaid
 flowchart TD
     U([User])
@@ -178,14 +178,14 @@ flowchart TD
     GUARD -. records .-> PROVENANCE
     PROXY -. paid request .-> X402 -. verifies .-> API
 ```
--->
+</details>
 ## Agent Workflow
 
 ![Trust Agent agent workflow](docs/assets/agent-workflow.svg)
 
 The workflow diagram is authored in [D2](docs/assets/agent-workflow.d2). It shows routing, clarification/overview branches, query planning, hybrid retrieval, conditional reranking, reflection, citation verification, and safe fallback.
 
-<!-- Legacy inline diagram retained outside the rendered README.
+<details hidden><summary>Legacy inline diagram</summary>
 ```mermaid
 flowchart TD
     START([User submits question])
@@ -244,7 +244,7 @@ flowchart TD
     VERIFIED -. save answer .-> MEMORY
     INSUFFICIENT -. save status .-> MEMORY
 ```
--->
+</details>
 
 ## Technical Implementation
 
