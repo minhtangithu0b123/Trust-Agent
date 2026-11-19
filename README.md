@@ -1,10 +1,12 @@
 # Trust Agent
 
-Agentic RAG cho tra cứu pháp luật Việt Nam, tập trung vào ba nhóm dữ liệu: giao thông, lao động và thuế/hóa đơn. Hệ thống định tuyến câu hỏi đến agent chuyên trách, truy xuất evidence từ corpus nội bộ và tạo câu trả lời có citation. Khi evidence chưa đủ hoặc câu hỏi thiếu thông tin quan trọng, hệ thống trả về trạng thái an toàn thay vì tự đoán.
-.
 ## Project Overview
 
-Trust Agent tách routing, retrieval, generation và verification để giới hạn truy xuất trong đúng domain, kết hợp tìm kiếm ngữ nghĩa và từ khóa, tạo citation từ metadata thật và yêu cầu làm rõ khi thiếu thông tin.
+Trust Agent là một nền tảng hỏi đáp pháp luật tiếng Việt được xây dựng theo kiến trúc Agentic RAG. Hệ thống kết hợp các domain agent chuyên trách, hybrid retrieval và cơ chế kiểm chứng evidence để trả lời câu hỏi trong ba nhóm dữ liệu: giao thông, lao động và thuế/hóa đơn.
+
+Thay vì để mô hình ngôn ngữ tự suy đoán từ kiến thức nền, Trust Agent buộc câu trả lời phải dựa trên các đoạn luật được truy xuất từ corpus nội bộ. Mỗi câu hỏi được phân loại, tìm kiếm bằng cả semantic search và BM25, hợp nhất bằng RRF, sau đó kiểm tra citation, Điều/Khoản và các thông tin định lượng trước khi trả về cho người dùng.
+
+Mục tiêu của dự án là xây dựng một hệ thống pháp lý có thể giải thích được và có giới hạn an toàn: khi câu hỏi thiếu ngữ cảnh hoặc dữ liệu chưa đủ căn cứ, hệ thống yêu cầu làm rõ hoặc trả về `insufficient_evidence` thay vì tạo ra một câu trả lời có vẻ thuyết phục nhưng không được chứng minh.
 
 ## Problem Statement
 
