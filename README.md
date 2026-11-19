@@ -130,9 +130,9 @@ flowchart TD
         LABOR_DB[(legal_labor<br/>Labor Chroma Collection)]
         TAX_DB[(legal_accounting<br/>Tax Chroma Collection)]
         META[Structured Metadata<br/>Document · Article · Clause · Source]
-        TRAFFIC_DB --- META
-        LABOR_DB --- META
-        TAX_DB --- META
+        TRAFFIC_DB -. metadata .-> META
+        LABOR_DB -. metadata .-> META
+        TAX_DB -. metadata .-> META
     end
 
     subgraph CONTEXT[6. Context & Ranking]
@@ -175,6 +175,8 @@ flowchart TD
 ```
 
 Frontend có thể chạy trên Vercel; backend chạy local, Docker hoặc container platform. API proxy giữ secret LLM ở server-side.
+
+**Ký hiệu:** `-->` luồng xử lý chính · `-.->` luồng phụ hoặc side effect · `([ ])` điểm đầu/cuối · `[( )]` storage/database · `{ }` decision.
 
 ## Agent Workflow
 
@@ -238,6 +240,8 @@ flowchart TD
 ```
 
 Các trạng thái chính: `verified`, `needs_clarification`, `insufficient_evidence` và `provider_error`.
+
+**Ký hiệu:** `-->` luồng xử lý chính · `-.->` ghi memory/side effect · `{ }` decision · `([ ])` trạng thái kết thúc · `[( )]` persistent memory.
 
 ## Technical Implementation
 
