@@ -142,9 +142,9 @@ Bộ benchmark có 300 cases, chia đều 100 câu/domain. Một lần chạy lo
 
 | Domain | Recall@1 | Recall@3 | Recall@5 | Corpus coverage |
 |---|---:|---:|---:|---:|
-| Traffic | 75/100 = 0.75 | 87/100 = 0.87 | 89/100 = 0.89 | 95/100 = 0.95 |
-| Labor | 93/100 = 0.93 | 95/100 = 0.95 | 95/100 = 0.95 | 100/100 = 1.00 |
-| Accounting | 82/100 = 0.82 | 91/100 = 0.91 | 97/100 = 0.97 | 100/100 = 1.00 |
+| Traffic | 0.75 |  0.87 |  0.89 |  0.95 |
+| Labor | 0.93 |   0.95 | 0.95 | 1.00 |
+| Tax |  0.82 |  0.91 |  0.97 |  1.00 |
 | **MRR tổng** | **0.8333** | **0.8689** | **0.8751** | — |
 
 Đây là retrieval benchmark, không phải độ chính xác pháp lý tổng quát. `Corpus coverage` đo xem evidence phù hợp có tồn tại ở đâu đó trong toàn bộ corpus hay không; nó giúp phân biệt lỗi thiếu dữ liệu với lỗi xếp hạng retrieval. Kết quả mới được chạy local trên bộ `benchmark_v3.jsonl` gồm 300 cases.
