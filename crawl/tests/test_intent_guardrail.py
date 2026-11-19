@@ -68,3 +68,12 @@ def test_router_stops_out_of_scope_zero_api():
     assert "nằm ngoài phạm vi tư vấn pháp lý" in result["answer"]
     assert result["citations"] == []
     assert result["classifications"] == []
+
+
+def test_router_stops_short_social_messages_zero_api():
+    for query in ("ok", "OK", "được rồi", "cam on ban", "bạn khỏe không"):
+        result = run_router(query)
+        assert result["status"] == "greeting"
+        assert result["citations"] == []
+        assert result["classifications"] == []
+        assert "sẵn sàng" in result["answer"]

@@ -26,6 +26,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<9", "httpx>=0.27,<1"]
+crawler = ["pypdf>=5,<7", "pymupdf>=1.24,<2"]
 payments = ["x402[evm]==2.25.0"]
 blockchain = ["web3>=7,<8", "py-solc-x>=2,<3"]
 

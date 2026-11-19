@@ -17,6 +17,14 @@ class Settings(BaseSettings):
     labor_domain: str = "labor"
     embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     embedding_device: str = "cpu"
+    reranker_enabled: bool = False
+    reranker_model: str = "BAAI/bge-reranker-v2-m3"
+    reranker_candidate_k: int = 20
+    reranker_batch_size: int = 8
+    reranker_max_length: int = 256
+    reflection_enabled: bool = True
+    reflection_max_rounds: int = 1
+    self_rag_enabled: bool = True
     api_host: str = "127.0.0.1"
     api_port: int = 8000
     llm_provider: str = "gemini"

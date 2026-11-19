@@ -38,6 +38,7 @@ DOMAIN_CONFIGS: dict[str, DomainConfig] = {
     ),
 }
 
+DOMAIN_ALIASES = {"tax": "accounting", "thue": "accounting"}
 
 
 class UnknownDomainError(ValueError):
@@ -50,6 +51,7 @@ class CorpusNotFoundError(FileNotFoundError):
 
 def get_domain_config(domain: str) -> DomainConfig:
     key = domain.strip().lower()
+    key = DOMAIN_ALIASES.get(key, key)
     try:
         return DOMAIN_CONFIGS[key]
     except KeyError as exc:

@@ -4,6 +4,8 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
+from .query_normalization import normalize_for_routing
+
 logger = logging.getLogger(__name__)
 
 IntentType = Literal["greeting", "out_of_scope", "in_scope"]
@@ -19,6 +21,23 @@ OUT_OF_SCOPE_MESSAGE = (
     "Hệ thống hiện chuyên sâu về 3 lĩnh vực pháp luật Việt Nam: Giao thông, Lao động "
     "và Thuế / Kế toán. Bạn vui lòng đặt câu hỏi liên quan đến các lĩnh vực này để được hỗ trợ nhé!"
 )
+
+ACK_MESSAGE = (
+    "Mình sẵn sàng hỗ trợ bạn tra cứu pháp luật về giao thông, lao động "
+    "hoặc thuế/kế toán."
+)
+
+# Các câu xác nhận/ngắn không mang nội dung pháp lý. Chỉ khớp toàn bộ câu để
+# không chặn nhầm các câu hỏi có chứa một từ như "rồi" hoặc "ok".
+SHORT_SOCIAL_QUERIES = {
+    "ok", "oke", "okay", "ừ", "ừm", "uh", "hmm", "rồi", "được rồi",
+    "đã rõ", "hiểu rồi", "cảm ơn", "cảm ơn bạn", "thanks", "thank you",
+    "bye", "goodbye", "tạm biệt",
+}
+
+SOCIAL_REGEXES = [
+    re.compile(r"^(bạn khỏe không|bạn khoẻ không|mình nói chuyện một chút nhé)$", re.IGNORECASE),
+]
 
 # Regex fast-paths cho câu chào hỏi, cảm ơn, tạm biệt phổ biến
 GREETING_REGEXES = [
@@ -72,6 +91,17 @@ class SemanticIntentGuardrail:
             return IntentCheckResult(
                 intent="greeting",
                 response=GREETING_MESSAGE,
+                confidence=1.0,
+            )
+
+        routing_query = normalize_for_routing(normalized)
+        normalized_social = {normalize_for_routing(item) for item in SHORT_SOCIAL_QUERIES}
+        if routing_query in normalized_social or any(
+            pattern.search(normalized) for pattern in SOCIAL_REGEXES
+        ):
+            return IntentCheckResult(
+                intent="greeting",
+                response=ACK_MESSAGE,
                 confidence=1.0,
             )
 

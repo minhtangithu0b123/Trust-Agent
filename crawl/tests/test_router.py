@@ -93,3 +93,45 @@ def test_expanded_query_is_sent_to_traffic_agent(monkeypatch):
     assert "nồng độ cồn" in result["classifications"][0]["query"]
     assert captured[0][0] == "traffic"
     assert "nồng độ cồn" in captured[0][1]
+
+
+def test_multi_vehicle_question_is_decomposed(monkeypatch):
+    settings = settings_without_llm()
+    monkeypatch.setattr(router, "get_settings", lambda: settings)
+    captured = []
+
+    def fake_traffic(query, k, sub_queries=None):
+        captured.append(sub_queries or [])
+        return {"query": query, "answer": "ok", "status": "verified", "citations": []}
+
+    monkeypatch.setattr(router, "run_traffic_agent", fake_traffic)
+    result = router.run_router(
+        "Xe máy vượt đèn đỏ bị phạt bao nhiêu và ô tô vượt đèn đỏ bị phạt bao nhiêu?",
+        5,
+    )
+    assert len(captured) == 1
+    assert len(captured[0]) == 2
+    assert "xe máy" in captured[0][0].casefold()
+    assert "ô tô" in captured[0][1].casefold()
+
+
+def test_contextual_followup_is_rewritten_for_retrieval():
+    history = [
+        {"role": "user", "content": "Hộ kinh doanh có phải xuất hóa đơn điện tử không?"},
+        {"role": "assistant", "content": "Có căn cứ..."},
+    ]
+    rewritten = router._rewrite_followup_query("Cụ thể hơn?", history)
+    assert rewritten.startswith("Hộ kinh doanh có phải xuất hóa đơn điện tử không?")
+    assert rewritten.endswith("Cụ thể hơn?")
+
+
+def test_explicit_new_query_is_not_rewritten():
+    history = [{"role": "user", "content": "Người lao động nghỉ phép năm bao nhiêu ngày?"}]
+    query = "Ô tô vượt đèn đỏ bị phạt bao nhiêu?"
+    assert router._rewrite_followup_query(query, history) == query
+
+
+def test_explicit_tax_enforcement_query_is_not_rewritten():
+    history = [{"role": "user", "content": "Khi nào người nộp thuế được hoàn thuế giá trị gia tăng?"}]
+    query = "Những trường hợp nào bị cưỡng chế thi hành quyết định hành chính về thuế?"
+    assert router._rewrite_followup_query(query, history) == query

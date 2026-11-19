@@ -1,11 +1,14 @@
 import logging
 import operator
+import inspect
+import re
 import uuid
 from typing import Annotated, Any, Literal
 from typing_extensions import TypedDict
 
 from pydantic import BaseModel, Field
 from langgraph.checkpoint.memory import MemorySaver
+from .checkpoint import get_sqlite_checkpointer
 from langgraph.constants import Send
 from langgraph.graph import END, START, StateGraph
 
@@ -17,16 +20,17 @@ from .agents.accounting_agent import run_accounting_agent
 from .config import Settings, get_settings
 from .query_normalization import clean_query, expand_query_for_retrieval, normalize_for_routing
 from .llm import build_structured_model
+from .overview import build_domain_overview, detect_overview_domain
 
 logger = logging.getLogger(__name__)
 
-_default_checkpointer = MemorySaver()
+_default_checkpointer = get_sqlite_checkpointer()
 
 LEGAL_DOMAINS = ("traffic", "labor", "accounting")
 DOMAIN_LABELS = {
     "traffic": "giao th\u00f4ng",
     "labor": "lao \u0111\u1ed9ng",
-    "accounting": "thu\u1ebf/k\u1ebf to\u00e1n",
+    "accounting": "thu\u1ebf",
 }
 CLARIFICATION_ANSWER = (
     "B\u1ea1n mu\u1ed1n tra c\u1ee9u l\u0129nh v\u1ef1c n\u00e0o: "
@@ -62,6 +66,36 @@ class SynthesizerPayload(BaseModel):
     )
 
 
+def _decompose_query(query: str) -> list[str]:
+    """Split explicit multi-situation questions without splitting one request.
+
+    We only split when the user supplies numbered/semicolon-separated items or
+    names two different vehicle classes.  This avoids turning a normal query
+    such as "phạt bao nhiêu và có bị trừ điểm không?" into unrelated searches.
+    """
+    text = clean_query(query)
+    if not text:
+        return []
+    numbered = [part.strip(" -") for part in re.split(r"(?=\b\d+[.)]\s+)", text) if part.strip()]
+    if len(numbered) > 1 and all(len(part) >= 12 for part in numbered):
+        return numbered
+    explicit = [part.strip(" -") for part in re.split(r"\s*;\s*|\n+", text) if part.strip()]
+    if len(explicit) > 1 and all(len(part) >= 12 for part in explicit):
+        return explicit
+
+    routing = normalize_for_routing(text)
+    vehicle_markers = ("xe may", "o to", "xe o to", "xe mo to", "xe gan may")
+    present = [marker for marker in vehicle_markers if marker in routing]
+    if "xe may" in routing and "o to" in routing:
+        match = re.search(r"\s+(?:va|;|,)?\s*(?=o to\b|xe o to\b)", routing)
+        if match:
+            left = text[:match.start()].strip(" ,;-")
+            right = text[match.end():].strip(" ,;-")
+            if len(left) >= 12 and len(right) >= 12:
+                return [left, right]
+    return []
+
+
 def _reduce_results(
     left: list[dict[str, Any]] | None,
     right: list[dict[str, Any]] | None,
@@ -78,6 +112,7 @@ def _reduce_results(
 class RouterState(TypedDict, total=False):
     query: str
     original_query: str
+    user_query: str
     routing_query: str
     k: int
     classifications: list[dict[str, str]]
@@ -92,6 +127,54 @@ class RouterState(TypedDict, total=False):
     guardrail_warnings: list[str]
 
 
+def _rewrite_followup_query(
+    query: str,
+    messages: list[dict[str, str]] | None = None,
+) -> str:
+    """Add the previous user question to an underspecified follow-up.
+
+    This is deliberately deterministic: it avoids an extra LLM call and only
+    rewrites short/context-dependent turns. Explicit legal questions remain
+    unchanged, so the three domain agents keep their normal retrieval path.
+    """
+    current = clean_query(query)
+    if not current or not messages:
+        return current
+    previous_user = next(
+        (
+            clean_query(str(item.get("content", "")))
+            for item in reversed(messages)
+            if isinstance(item, dict)
+            and item.get("role") == "user"
+            and clean_query(str(item.get("content", "")))
+        ),
+        "",
+    )
+    if not previous_user or previous_user.casefold() == current.casefold():
+        return current
+
+    routing = normalize_for_routing(current)
+    followup_markers = (
+        "cu the hon", "chi tiet hon", "cu the", "dieu kien nao",
+        "truong hop nao", "con ", "vay ", "the con", "nhu vay",
+        "doi voi truong hop", "co duoc khong",
+    )
+    is_short = len(current.split()) <= 12 or len(current) <= 90
+    is_contextual = any(marker in routing for marker in followup_markers)
+    explicit_legal_subject = (
+        "cuong che", "quyet dinh hanh chinh", "kiem tra thue", "hoan thue",
+        "hoa don", "ma so thue", "mien thue", "giam thue", "thu nhap",
+        "doi tuong khong chiu thue", "bao cao tai chinh", "nop thue",
+        "xe may", "o to", "den do", "nong do con", "nguoi lao dong",
+        "hop dong", "tien luong", "nghi phep",
+    )
+    if any(term in routing for term in explicit_legal_subject):
+        return current
+    if not (is_short and is_contextual):
+        return current
+    return clean_query(f"{previous_user} {current}")
+
+
 def _normalize_classifications(items: list[Classification]) -> list[dict[str, Any]]:
     seen: set[str] = set()
     result: list[dict[str, Any]] = []
@@ -103,6 +186,8 @@ def _normalize_classifications(items: list[Classification]) -> list[dict[str, An
             continue
         seen.add(item.domain)
         sub_qs = [clean_query(sq) for sq in getattr(item, "sub_queries", []) if clean_query(sq)]
+        if not sub_qs:
+            sub_qs = _decompose_query(query)
         entry: dict[str, Any] = {"domain": item.domain, "query": query}
         if sub_qs:
             entry["sub_queries"] = sub_qs
@@ -202,6 +287,8 @@ def _expand_classifications(items: list[dict[str, Any]], original_query: str) ->
         if expanded == original_query and clean_query(item["query"]) != original_query:
             expanded = clean_query(item["query"])
         sub_qs = item.get("sub_queries", [])
+        if not sub_qs:
+            sub_qs = _decompose_query(original_query)
         entry: dict[str, Any] = {"domain": item["domain"], "query": expanded}
         if sub_qs:
             entry["sub_queries"] = sub_qs
@@ -228,7 +315,8 @@ def _classify_query(
 
 def classify_query(state: RouterState) -> dict[str, Any]:
     original_query = clean_query(state.get("original_query") or state.get("query", ""))
-    routing_query = normalize_for_routing(original_query)
+    contextual_query = clean_query(state.get("query") or original_query)
+    routing_query = normalize_for_routing(contextual_query)
     messages = state.get("messages", [])
     # Input Intent Guardrail: Chan chao hoi & cau hoi ngoai le (0d API)
     intent_result = get_intent_guardrail().check_intent(original_query)
@@ -251,7 +339,7 @@ def classify_query(state: RouterState) -> dict[str, Any]:
             ],
         }
 
-    classifications = _classify_query(original_query, get_settings(), messages=messages)
+    classifications = _classify_query(contextual_query, get_settings(), messages=messages)
     if not classifications:
         return {
             "original_query": original_query,
@@ -296,6 +384,7 @@ def route_to_agents(state: RouterState) -> list[Send] | str:
             "original_query": clean_query(classification["query"]),
             "k": state.get("k", 5),
             "classification": classification,
+            "sub_queries": classification.get("sub_queries", []),
         }))
     return sends or END
 
@@ -308,8 +397,12 @@ def _run_agent(
     classification = state.get("classification", {})
     query = clean_query(state.get("query") or classification.get("query", ""))
     k = state.get("k", 5)
+    sub_queries = state.get("sub_queries") or classification.get("sub_queries", [])
     try:
-        result = agent_runner(query, k)
+        if "sub_queries" in inspect.signature(agent_runner).parameters:
+            result = agent_runner(query, k, sub_queries=sub_queries)
+        else:
+            result = agent_runner(query, k)
         output = AgentOutput(
             domain=public_domain,
             query=clean_query(str(result.get("query", query))),
@@ -403,6 +496,7 @@ def _build_synthesizer_user_prompt(
         f"Câu hỏi của người dùng:\n{query}\n\n"
         f"Kết quả tra cứu từ các nhánh chuyên môn:\n"
         f"{context_str}\n\n"
+        f"Chỉ trả lời câu hỏi hiện tại; không suy diễn từ câu hỏi trước hoặc thêm nội dung không được hỏi. "
         f"Hãy tổng hợp thành câu trả lời thống nhất, mạch lạc, chuẩn xác theo đúng cấu trúc và nguyên tắc đã quy định."
     )
 
@@ -554,9 +648,34 @@ def build_router_graph(checkpointer: Any = None):
 def run_router(query: str, k: int = 5, thread_id: str | None = None, messages: list[dict[str, str]] | None = None) -> dict[str, Any]:
     effective_thread_id = thread_id or str(uuid.uuid4())
     original_query = clean_query(query)
+    config = {"configurable": {"thread_id": effective_thread_id}}
+    graph = build_router_graph()
+    existing = graph.get_state(config)
+    history = list(existing.values.get("messages", [])) if existing.values else []
+    if not history:
+        history = list(messages or [])
+    contextual_query = _rewrite_followup_query(original_query, history)
+    overview_domain = detect_overview_domain(contextual_query)
+    if overview_domain:
+        settings = get_settings()
+        config = settings.domain_config(overview_domain)
+        overview = build_domain_overview(settings, config)
+        return {
+            "query": original_query,
+            "classifications": [{"domain": overview_domain, "query": contextual_query, "intent": "overview"}],
+            "results": [],
+            "answer": overview["answer"],
+            "citations": [],
+            "status": overview["status"],
+            "guardrail_status": overview["status"],
+            "guardrail_warnings": [],
+            "overview": overview,
+            "thread_id": effective_thread_id,
+        }
     state: RouterState = {
-        "query": original_query,
+        "query": contextual_query,
         "original_query": original_query,
+        "user_query": original_query,
         "routing_query": normalize_for_routing(original_query),
         "k": k,
         "classifications": [],
@@ -569,12 +688,8 @@ def run_router(query: str, k: int = 5, thread_id: str | None = None, messages: l
         "guardrail_status": "",
         "guardrail_warnings": [],
     }
-    config = {"configurable": {"thread_id": effective_thread_id}}
-    graph = build_router_graph()
-    if messages:
-        existing = graph.get_state(config)
-        if existing.values:
-            state["messages"] = []
+    if history:
+        state["messages"] = []
     output = graph.invoke(state, config=config)
     final_status = output.get("status", "insufficient_evidence")
     return {

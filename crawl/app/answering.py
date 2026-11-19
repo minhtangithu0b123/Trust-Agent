@@ -14,7 +14,7 @@ def contains_insufficient_evidence(answer: str) -> bool:
     normalized = " ".join(str(answer).casefold().split()).rstrip(".")
     return "chưa đủ căn cứ từ dữ liệu hiện có để kết luận" in normalized
 
-def build_relevant_excerpt(text: str, query: str, max_chars: int = 1800, max_segments: int = 5) -> str:
+def build_relevant_excerpt(text: str, query: str, max_chars: int = 2400, max_segments: int = 7) -> str:
     source = str(text or "").strip()
     if len(source) <= max_chars:
         return source
@@ -23,6 +23,9 @@ def build_relevant_excerpt(text: str, query: str, max_chars: int = 1800, max_seg
     scored = []
     for index, segment in enumerate(segments):
         score = len(query_tokens & set(re.findall(r"\w+", segment.casefold())))
+        # Keep opening article heading or definition so legal context and premise are preserved
+        if index == 0 or re.match(r"^\s*(điều|khoản)\s+\d+", segment, re.IGNORECASE):
+            score += 2
         if re.search(r"\b(điều|khoản|phạt|tiền|nghỉ|lương|thuế|hóa đơn|kế toán)\b", segment, re.IGNORECASE):
             score += 1
         scored.append((score, index, segment))

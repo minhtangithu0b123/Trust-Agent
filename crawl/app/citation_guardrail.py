@@ -12,6 +12,7 @@ import logging
 import re
 import unicodedata
 from dataclasses import dataclass, field
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -61,19 +62,77 @@ def contains_insufficient_evidence(answer: str) -> bool:
 
 
 QUANTITATIVE_PATTERN = re.compile(
-    r"(?<!\w)(\d[\d.,]*)\s*(đồng|vnđ|vnd|ngày|tháng|năm|mg|miligam|km/h|giờ|%|triệu|tỷ)\b",
+    r"(?<!\w)(\d[\d.,]*)\s*(đồng|vnđ|vnd|ngày|tháng|năm|mg|miligam|km/h|giờ|%|triệu|tỷ|mililit|lít)\b",
     re.IGNORECASE,
 )
 
 
+_UNIT_ALIASES = {
+    "đồng": "currency",
+    "vnđ": "currency",
+    "vnd": "currency",
+    "triệu": "currency",
+    "tỷ": "currency",
+    "mg": "mg",
+    "miligam": "mg",
+    "km/h": "kmh",
+    "ngày": "day",
+    "tháng": "month",
+    "năm": "year",
+    "giờ": "hour",
+    "%": "percent",
+    "mililit": "milliliter",
+    "lít": "liter",
+}
+
+
+def _parse_quantity_number(value: str) -> Decimal | None:
+    """Parse Vietnamese decimal/thousands separators without losing 0.25."""
+    raw = value.replace(" ", "")
+    if "," in raw and "." in raw:
+        # In Vietnamese notation the last separator is normally decimal.
+        if raw.rfind(",") > raw.rfind("."):
+            raw = raw.replace(".", "").replace(",", ".")
+        else:
+            raw = raw.replace(",", "")
+    elif "," in raw:
+        head, tail = raw.rsplit(",", 1)
+        raw = raw.replace(",", "") if len(tail) == 3 and head else raw.replace(",", ".")
+    elif raw.count(".") == 1:
+        head, tail = raw.split(".", 1)
+        raw = raw.replace(".", "") if len(tail) == 3 and head else raw
+    else:
+        raw = raw.replace(".", "")
+    try:
+        return Decimal(raw)
+    except InvalidOperation:
+        return None
+
+
 def _compact_quantity(value: str, unit: str) -> str:
-    digits = re.sub(r"\D", "", value)
-    normalized_unit = _clean_nfc(unit).casefold().replace(" ", "")
-    return digits + normalized_unit
+    number = _parse_quantity_number(value)
+    if number is None:
+        return ""
+    normalized_unit = _UNIT_ALIASES.get(_clean_nfc(unit).casefold(), _clean_nfc(unit).casefold())
+    if normalized_unit == "currency":
+        raw_unit = _clean_nfc(unit).casefold()
+        if raw_unit == "triệu":
+            number *= Decimal("1000000")
+        elif raw_unit == "tỷ":
+            number *= Decimal("1000000000")
+    normalized_number = format(number.normalize(), "f")
+    if "." in normalized_number:
+        normalized_number = normalized_number.rstrip("0").rstrip(".")
+    normalized_number = normalized_number or "0"
+    return normalized_number + normalized_unit
 
 
 def _extract_quantities(text: str) -> list[str]:
-    return [_compact_quantity(value, unit) for value, unit in QUANTITATIVE_PATTERN.findall(_clean_nfc(text))]
+    return [
+        compact
+        for value, unit in QUANTITATIVE_PATTERN.findall(_clean_nfc(text))
+        if (compact := _compact_quantity(value, unit))
+    ]
 
 
 def _unsupported_quantities(answer: str, evidence: list[Any]) -> list[str]:
@@ -83,8 +142,16 @@ def _unsupported_quantities(answer: str, evidence: list[Any]) -> list[str]:
             evidence_texts.append(str(getattr(item.document, "page_content", "")))
         elif isinstance(item, dict):
             evidence_texts.append(str(item.get("text", "")))
-    evidence_compact = re.sub(r"[\s.,/]", "", _clean_nfc(" ".join(evidence_texts)).casefold())
-    return [quantity for quantity in _extract_quantities(answer) if quantity not in evidence_compact]
+    evidence_quantities = set(_extract_quantities(" ".join(evidence_texts)))
+    unsupported: list[str] = []
+    seen: set[str] = set()
+    for quantity in _extract_quantities(answer):
+        if quantity in seen:
+            continue
+        seen.add(quantity)
+        if quantity not in evidence_quantities:
+            unsupported.append(quantity)
+    return unsupported
 
 PUNCT_TO_STRIP = "()[]{}\"'.,;:-\u201c\u201d\u2018\u2019\u00ab\u00bb"
 

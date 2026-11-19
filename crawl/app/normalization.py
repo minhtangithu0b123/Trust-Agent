@@ -14,6 +14,25 @@ REQUIRED_FIELDS = (
     "dieu", "tieu_de_dieu", "khoan", "text",
 )
 
+# Some crawled PDFs expose only an internal filename (for example ``thue1``)
+# as ``ten_van_ban``. Use the legal identifier as the source of truth for
+# citations so the model receives the actual law name.
+CANONICAL_DOCUMENT_TITLES = {
+    "108/2025/QH15": "Luật Quản lý thuế",
+}
+
+KNOWN_OCR_REPAIRS = {
+    "địch vụ": "dịch vụ",
+    "chỉ nhận thông tin": "ghi nhận thông tin",
+    "gềm": "gồm",
+    "gềm hóa đơn": "gồm hóa đơn",
+    "kết nói dữ liệu": "kết nối dữ liệu",
+    "kết nói đữ liệu": "kết nối dữ liệu",
+    "đữ liệu": "dữ liệu",
+    "muà hàng": "mua hàng",
+    "hóa 34 đơn": "hóa đơn",
+}
+
 
 def _label_number(value: str, label: str) -> str:
     match = re.search(rf"{label}\s+(\d+[A-Za-z]?)", value, re.IGNORECASE)
@@ -69,7 +88,10 @@ def repair_text(value: Any) -> str:
         if fixed == text:
             break
         text = fixed
-    return text.replace("Lu\u00e2t", "Lu\u1eadt")
+    text = text.replace("Lu\u00e2t", "Lu\u1eadt")
+    for broken, repaired in KNOWN_OCR_REPAIRS.items():
+        text = text.replace(broken, repaired)
+    return text
 
 
 def _repair_domain_fields(values: dict[str, str], domain: str) -> dict[str, str]:
@@ -119,6 +141,9 @@ def normalize_record(
         {field: repair_text(record.get(field)) for field in REQUIRED_FIELDS},
         domain,
     )
+    canonical_title = CANONICAL_DOCUMENT_TITLES.get(values["so_hieu"])
+    if canonical_title:
+        values["ten_van_ban"] = canonical_title
     if not values["text"]:
         raise ValueError(f"Record {index} has empty text")
     fingerprint = "|".join([

@@ -54,3 +54,19 @@ def test_hybrid_refresh_and_dense_search_filter_domain(monkeypatch):
     result = retriever.search("traffic", k=1)
     assert result[0].document.metadata["domain"] == "traffic"
     assert all(document.metadata["domain"] == "traffic" for document in retriever._documents.values())
+def test_overview_domain_detection():
+    from app.overview import detect_overview_domain
+
+    assert detect_overview_domain("Luật lao động có gì?") == "labor"
+    assert detect_overview_domain("Luật giao thông gồm những gì?") == "traffic"
+    assert detect_overview_domain("Luật kế toán có nội dung gì?") == "accounting"
+    assert detect_overview_domain("Mức phạt nồng độ cồn khi lái xe máy?") is None
+    assert detect_overview_domain("Hợp đồng lao động cần có những nội dung gì?") is None
+    assert detect_overview_domain("Hóa đơn điện tử cần có những nội dung gì?") is None
+
+
+def test_tax_alias_keeps_accounting_canonical_config():
+    from app.domains import get_domain_config
+
+    assert get_domain_config("tax").name == "accounting"
+    assert get_domain_config("thue").collection_name == "legal_accounting"

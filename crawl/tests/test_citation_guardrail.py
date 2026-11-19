@@ -519,3 +519,63 @@ def test_quantitative_claim_missing_from_evidence_is_not_verified():
     assert result.status == "unverified"
     assert result.citations == []
     assert result.warnings
+
+
+def test_quantitative_guardrail_normalizes_leading_zero_and_deduplicates():
+    evidence = [{
+        "document_id": "traffic-speed-1",
+        "text": "Chạy quá tốc độ từ 5 km/h đến 20 km/h.",
+        "metadata": {"id": "traffic-speed-1", "domain": "traffic"},
+    }]
+    result = verify_citations_guardrail(
+        answer="Mức 05 km/h và 20 km/h; mức 20 km/h áp dụng theo quy định.",
+        evidence=evidence,
+        cited_document_ids=["traffic-speed-1"],
+        verify_quantitative_claims=True,
+    )
+    assert result.status == "verified"
+
+
+def test_quantitative_guardrail_normalizes_units_and_decimal_values():
+    evidence = [{
+        "document_id": "traffic-alcohol-1",
+        "text": "Nồng độ cồn từ 0,25 mg/l đến 0,4 mg/l khí thở; mức phạt 4.000.000 đồng.",
+        "metadata": {"id": "traffic-alcohol-1", "domain": "traffic"},
+    }]
+    result = verify_citations_guardrail(
+        answer="Nồng độ cồn từ 0.25 mg/l đến 0,4 miligam/l; phạt 4 triệu đồng.",
+        evidence=evidence,
+        cited_document_ids=["traffic-alcohol-1"],
+        verify_quantitative_claims=True,
+    )
+    assert result.status == "verified"
+
+
+def test_quantitative_guardrail_does_not_confuse_decimal_with_integer():
+    evidence = [{
+        "document_id": "traffic-alcohol-2",
+        "text": "Nồng độ cồn 25 mg/l.",
+        "metadata": {"id": "traffic-alcohol-2", "domain": "traffic"},
+    }]
+    result = verify_citations_guardrail(
+        answer="Nồng độ cồn 0,25 mg/l.",
+        evidence=evidence,
+        cited_document_ids=["traffic-alcohol-2"],
+        verify_quantitative_claims=True,
+    )
+    assert result.status == "unverified"
+
+
+def test_quantitative_guardrail_matches_million_currency_to_full_dong():
+    evidence = [{
+        "document_id": "traffic-fine-1",
+        "text": "Phạt tiền từ 4.000.000 đồng đến 6.000.000 đồng.",
+        "metadata": {"id": "traffic-fine-1", "domain": "traffic"},
+    }]
+    result = verify_citations_guardrail(
+        answer="Mức phạt từ 4 triệu đồng đến 6 triệu đồng.",
+        evidence=evidence,
+        cited_document_ids=["traffic-fine-1"],
+        verify_quantitative_claims=True,
+    )
+    assert result.status == "verified"

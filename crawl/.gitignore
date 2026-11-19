@@ -9,6 +9,9 @@ venv/
 .DS_Store
 data/chroma/
 data/provenance.sqlite3
+data/conversations.db
+data/conversations.db-wal
+data/conversations.db-shm
 .pytest_cache/
 logs/
 *.egg-info/

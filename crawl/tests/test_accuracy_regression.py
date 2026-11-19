@@ -47,7 +47,13 @@ from scripts.evaluate_accuracy import (
 @pytest.fixture(scope="module")
 def bo_100_cases():
     """Loads and caches parsed benchmark cases from bo_100_cau_hoi_phan_bien_SignEmo.md."""
-    dataset_path = find_dataset_file()
+    try:
+        dataset_path = find_dataset_file()
+    except FileNotFoundError:
+        pytest.skip(
+            "SignEmo benchmark file is not present; run the retrieval benchmark "
+            "or restore bo_100_cau_hoi_phan_bien_SignEmo.md to enable these tests."
+        )
     return parse_bo_100_markdown(dataset_path)
 
 

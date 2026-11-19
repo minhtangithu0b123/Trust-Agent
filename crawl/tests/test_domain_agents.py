@@ -66,6 +66,42 @@ def test_labor_and_accounting_agents_use_shared_react_loop(monkeypatch):
     assert accounting_agent.run_accounting_agent("thuế", model=FakeModel())["status"] == "verified"
 
 
+def test_reflection_reviews_draft_before_finalizing(monkeypatch):
+    reflection_settings = SimpleNamespace(
+        openai_api_key=None,
+        openai_model="test-model",
+        reflection_enabled=True,
+        reflection_max_rounds=1,
+    )
+    evidence = {
+        "document_id": "domain-1",
+        "text": "Quy định pháp luật theo Điều 25.",
+        "metadata": {"id": "domain-1", "domain": "labor", "dieu": "Điều 25"},
+        "citation": {"document_id": "domain-1", "dieu": "Điều 25"},
+    }
+
+    class ReflectingModel:
+        def __init__(self):
+            self.calls = 0
+
+        def invoke(self, prompt):
+            self.calls += 1
+            if self.calls == 1:
+                return {"action": "search", "query": "thời gian thử việc"}
+            if self.calls == 2:
+                return {"action": "final", "answer": "Theo Điều 25.", "cited_document_ids": ["domain-1"]}
+            return {"action": "final", "answer": "Theo Điều 25, áp dụng theo evidence.", "cited_document_ids": ["domain-1"]}
+
+    monkeypatch.setattr(labor_agent, "get_settings", lambda: reflection_settings)
+    monkeypatch.setattr(labor_agent, "search_labor_law", lambda query, k=5: [evidence])
+    model = ReflectingModel()
+    result = labor_agent.run_labor_agent("thời gian thử việc", model=model)
+
+    assert result["status"] == "verified"
+    assert model.calls == 3
+    assert "áp dụng theo evidence" in result["answer"]
+
+
 def test_labor_and_accounting_endpoints(monkeypatch):
     monkeypatch.setattr("app.main.run_labor_agent", lambda query, k: {"query": query, "answer": "labor", "status": "verified", "citations": []})
     monkeypatch.setattr("app.main.run_accounting_agent", lambda query, k: {"query": query, "answer": "accounting", "status": "verified", "citations": []})

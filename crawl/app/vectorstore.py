@@ -39,7 +39,7 @@ def get_vectorstore(settings: Settings, domain: str = "labor") -> Chroma:
     )
 
 
-def ingest_domain(settings: Settings, domain: str) -> IngestResult:
+def ingest_domain(settings: Settings, domain: str, prune_stale: bool = False) -> IngestResult:
     config = settings.domain_config(domain)
     data_path = settings.resolve_path(config.data_path)
     if not data_path.exists():
@@ -49,13 +49,45 @@ def ingest_domain(settings: Settings, domain: str) -> IngestResult:
         )
     pairs = load_documents(data_path, config)
     store = get_vectorstore(settings, config.name)
-    existing = set(store.get(include=[]).get("ids", []))
+    existing_payload = store.get(include=["metadatas"])
+    existing_ids = existing_payload.get("ids", [])
+    existing_metadatas = existing_payload.get("metadatas", [])
+    existing = set(existing_ids)
+    desired = {record_id for record_id, _ in pairs}
+    if prune_stale:
+        stale = existing - desired
+        if stale:
+            store.delete(ids=list(stale))
+            existing -= stale
+            logger.info("Removed stale chunks: domain=%s count=%s", config.name, len(stale))
     pending = [(record_id, document) for record_id, document in pairs if record_id not in existing]
     if pending:
         store.add_documents(
             documents=[document for _, document in pending],
             ids=[record_id for record_id, _ in pending],
         )
+    # Keep metadata searchable when the corpus schema gains a field. This
+    # updates existing chunks without recomputing embeddings.
+    metadata_by_id = {
+        record_id: document.metadata
+        for record_id, document in pairs
+        if record_id in existing
+    }
+    metadata_updates = []
+    for record_id, metadata in zip(existing_ids, existing_metadatas):
+        desired_metadata = metadata_by_id.get(record_id)
+        if desired_metadata and metadata != desired_metadata:
+            metadata_updates.append((record_id, desired_metadata))
+    if metadata_updates:
+        store._collection.update(
+            ids=[record_id for record_id, _ in metadata_updates],
+            metadatas=[metadata for _, metadata in metadata_updates],
+        )
+        logger.info("Updated chunk metadata: domain=%s count=%s", config.name, len(metadata_updates))
+    # BM25 is cached in-process; invalidate it after ingest so an update with
+    # the same collection size is not left stale.
+    from .retrieval import invalidate_hybrid_retriever
+    invalidate_hybrid_retriever(settings, config.name)
     count = store._collection.count()
     logger.info(
         "Domain ingest: domain=%s total=%s added=%s skipped=%s collection=%s count=%s",

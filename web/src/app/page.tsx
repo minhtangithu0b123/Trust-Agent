@@ -354,6 +354,7 @@ export default function Home() {
     if (textarea.current) textarea.current.style.height = "auto";
     setLoading(true);
     setConversationError(null);
+    let pendingAssistantMessageId: string | null = null;
     requestAnimationFrame(() =>
       bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" }),
     );
@@ -367,10 +368,119 @@ export default function Home() {
 
       const response = await fetch("/api/ask", {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ query, thread_id: conversationId }),
+        headers: {
+          "content-type": "application/json",
+          accept: "text/event-stream, application/json",
+        },
+        body: JSON.stringify({ query, thread_id: conversationId, stream: true }),
         signal: controller.signal,
       });
+
+      const contentType = response.headers.get("content-type") || "";
+
+      if (response.ok && contentType.includes("text/event-stream") && response.body) {
+        const assistantMessageId = "client-assistant-" + Date.now();
+        pendingAssistantMessageId = assistantMessageId;
+        let accumulatedText = "";
+        let finalAnswer: Answer | null = null;
+        let streamError: string | null = null;
+
+        // Place placeholder message in UI
+        setMessages((current) => [
+          ...current,
+          {
+            id: assistantMessageId,
+            role: "assistant",
+            text: "",
+            createdAt: new Date().toISOString(),
+          },
+        ]);
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const blocks = buffer.split("\n\n");
+          buffer = blocks.pop() || "";
+
+          for (const block of blocks) {
+            if (!block.trim()) continue;
+            let eventType = "message";
+            let eventData = "";
+            for (const rawLine of block.split("\n")) {
+              const line = rawLine.trimEnd();
+              if (line.startsWith("event:")) {
+                eventType = line.slice(6).trim();
+              } else if (line.startsWith("data:")) {
+                eventData = line.slice(5).trim();
+              }
+            }
+
+            if (eventType === "token") {
+              try {
+                const parsed = JSON.parse(eventData);
+                if (parsed.delta) {
+                  accumulatedText += parsed.delta;
+                  setMessages((current) =>
+                    current.map((msg) =>
+                      msg.id === assistantMessageId
+                        ? { ...msg, text: accumulatedText }
+                        : msg
+                    )
+                  );
+                }
+              } catch {
+                // Ignore parse errors on partial frames
+              }
+            } else if (eventType === "final") {
+              try {
+                finalAnswer = JSON.parse(eventData) as Answer;
+              } catch {
+                // Ignore parse error
+              }
+            } else if (eventType === "error") {
+              try {
+                const parsed = JSON.parse(eventData) as { detail?: unknown };
+                streamError = typeof parsed.detail === "string" ? parsed.detail : "Trust Agent stream error.";
+              } catch {
+                streamError = eventData || "Trust Agent stream error.";
+              }
+            }
+          }
+        }
+
+        if (streamError) throw new Error(streamError);
+
+        const resolvedConversationId =
+          finalAnswer?.conversation_id || finalAnswer?.thread_id || conversationId;
+        setThreadId(resolvedConversationId);
+        window.localStorage.setItem(
+          "trust-agent-active-conversation",
+          resolvedConversationId,
+        );
+
+        setMessages((current) =>
+          current.map((msg) =>
+            msg.id === assistantMessageId
+              ? {
+                  ...msg,
+                  text: finalAnswer?.answer || accumulatedText || "Chưa nhận được câu trả lời.",
+                  answer: finalAnswer || {
+                    answer: accumulatedText,
+                    status: "verified",
+                  },
+                }
+              : msg
+          )
+        );
+        void refreshConversations();
+        return;
+      }
+
       const data = await response.json().catch(() => null);
 
       if (!response.ok) {
@@ -405,7 +515,10 @@ export default function Home() {
       ]);
       void refreshConversations();
     } catch (error: unknown) {
-      if (error instanceof Error && error.name === "AbortError") return;
+      if (error instanceof Error && error.name === "AbortError") {
+        if (!pendingAssistantMessageId) return;
+        error = new Error("Request timed out. Please try again.");
+      }
       const errorText =
         error instanceof Error ? error.message : "Không thể gửi câu hỏi lúc này.";
       setMessages((current) => [
@@ -419,6 +532,9 @@ export default function Home() {
           failedQuery: query,
         },
       ]);
+      if (pendingAssistantMessageId) {
+        setMessages((current) => current.filter((message) => message.id !== pendingAssistantMessageId));
+      }
     } finally {
       if (!controller.signal.aborted) setLoading(false);
       requestAnimationFrame(() =>
@@ -501,6 +617,24 @@ export default function Home() {
     } catch (error: unknown) {
       setConversationError(
         error instanceof Error ? error.message : "Không thể xóa cuộc trò chuyện.",
+      );
+    }
+  }
+
+  async function clearHistory() {
+    if (!conversations.length || !window.confirm("Xóa toàn bộ lịch sử tra cứu?")) return;
+    try {
+      const response = await fetch("/api/conversations", { method: "DELETE" });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(responseError(data, "Không thể xóa lịch sử tra cứu."));
+      }
+      startNewConversation();
+      setConversations([]);
+      setConversationError(null);
+    } catch (error: unknown) {
+      setConversationError(
+        error instanceof Error ? error.message : "Không thể xóa lịch sử tra cứu.",
       );
     }
   }
@@ -590,6 +724,11 @@ export default function Home() {
         </button>
 
         <div className="history-list-label">GẦN ĐÂY</div>
+        {conversations.length > 0 && (
+          <button type="button" className="history-clear" onClick={() => void clearHistory()}>
+            Xóa toàn bộ lịch sử
+          </button>
+        )}
         <div className="history-list">
           {loadingConversations ? (
             <div className="history-state">Đang tải lịch sử...</div>

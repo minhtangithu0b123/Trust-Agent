@@ -389,6 +389,20 @@ class DatabaseManager:
         with self.connection() as connection:
             return _execute(connection)
 
+    def delete_all_conversations(self, conn: Any | None = None) -> int:
+        """Delete all persisted conversations and return the number removed."""
+        sql = adapt_sql("DELETE FROM conversations", self.dialect)
+
+        def _execute(target_conn: Any) -> int:
+            with target_conn:
+                cursor = target_conn.execute(sql)
+                return max(0, int(cursor.rowcount or 0))
+
+        if conn is not None:
+            return _execute(conn)
+        with self.connection() as connection:
+            return _execute(connection)
+
     def add_message(
         self,
         conversation_id: str,
@@ -586,6 +600,10 @@ def delete_conversation(
     conn: Any | None = None,
 ) -> bool:
     return get_db_manager().delete_conversation(conversation_id=conversation_id, conn=conn)
+
+
+def delete_all_conversations(conn: Any | None = None) -> int:
+    return get_db_manager().delete_all_conversations(conn=conn)
 
 
 def add_message(

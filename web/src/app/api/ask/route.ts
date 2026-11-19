@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   }
 
   const apiUrl = (process.env.TRUST_AGENT_API_URL || "http://127.0.0.1:8000").trim().replace(/\/+$/, "");
-  const requestBody: { query: string; k: number; thread_id?: string } = {
+  const requestBody: { query: string; k: number; thread_id?: string; stream?: boolean } = {
     query: payload.query.trim(),
     k: 5,
   };
@@ -37,11 +37,20 @@ export async function POST(request: Request) {
     requestBody.thread_id = payload.thread_id.trim();
   }
 
+  const isStreamRequested =
+    ("stream" in payload && Boolean((payload as Record<string, unknown>).stream)) ||
+    request.headers.get("accept")?.includes("text/event-stream");
+
+  if (isStreamRequested) {
+    requestBody.stream = true;
+  }
+
   try {
     const rawApiKey = process.env.API_ACCESS_TOKEN;
     const apiKey = typeof rawApiKey === "string" && rawApiKey.trim().length > 0 ? rawApiKey.trim() : undefined;
 
-    const timeoutSignal = AbortSignal.timeout(90_000);
+    // Cold-starting the local cross-encoder and Router fan-out can exceed 90s.
+    const timeoutSignal = AbortSignal.timeout(180_000);
     const signal =
       typeof AbortSignal.any === "function"
         ? AbortSignal.any([request.signal, timeoutSignal])
@@ -61,6 +70,18 @@ export async function POST(request: Request) {
       cache: "no-store",
       signal,
     });
+
+    const contentType = upstream.headers.get("content-type") || "";
+    if (upstream.ok && contentType.includes("text/event-stream") && upstream.body) {
+      return new Response(upstream.body, {
+        status: 200,
+        headers: {
+          "content-type": "text/event-stream; charset=utf-8",
+          "cache-control": "no-cache, no-transform",
+          "connection": "keep-alive",
+        },
+      });
+    }
 
     const body = await upstream.json().catch(() => null);
 
@@ -107,7 +128,7 @@ export async function POST(request: Request) {
 
     if (isTimeout) {
       return NextResponse.json(
-        { detail: "Yêu cầu tra cứu quá thời gian phản hồi từ Trust Agent API (timeout 90s). Vui lòng thử lại sau." },
+        { detail: "Yêu cầu tra cứu quá thời gian phản hồi từ Trust Agent API (timeout 180s). Vui lòng thử lại sau." },
         { status: 504 },
       );
     }

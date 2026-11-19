@@ -14,7 +14,9 @@ COPY src ./src
 COPY data/raw ./data/raw
 
 RUN pip install --no-cache-dir .[payments] \
-    && python scripts/ingest_domain.py traffic
+    && python scripts/ingest_domain.py traffic \
+    && python scripts/ingest_domain.py labor \
+    && python scripts/ingest_domain.py accounting
 
 EXPOSE 10000
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..config import get_settings
+from ..clarification import clarification_for_query
 from ..query_normalization import clean_query, expand_query_for_retrieval, normalize_for_routing
 from ..retrieval import get_hybrid_retriever
 from .base import (
@@ -31,8 +32,11 @@ Có thể search nhiều lần hoặc lấy một document cụ thể nếu evid
 Nếu không đủ căn cứ, phải trả đúng: "Chưa đủ căn cứ từ dữ liệu hiện có để kết luận."
 Phân biệt "Quy định pháp luật" và "Suy luận theo tình huống" nếu có suy luận.
 Chỉ dùng cited_document_ids xuất hiện trong evidence của lượt chạy này.
+Khi trả lời về hóa đơn điện tử của hộ/cá nhân kinh doanh, phải nêu rõ điều kiện và ngoại lệ đúng theo evidence; không suy rộng thành "mọi hộ kinh doanh luôn phải dùng cùng một loại hóa đơn".
+Nếu đề cập căn cứ, phải dùng đúng tên văn bản và số hiệu trong CITATION, không thay bằng các tên chung như "Luật thuế".
+Chỉ trả lời đúng nội dung câu hỏi hiện tại; không lặp lại câu trả lời của lượt trước và không thêm Điều/Khoản liên quan nếu evidence không trực tiếp hỗ trợ.
 """
-SPEC = DomainAgentSpec(ACCOUNTING_DOMAIN, "Accounting Agent", AGENT_POLICY)
+SPEC = DomainAgentSpec(ACCOUNTING_DOMAIN, "Tax Agent", AGENT_POLICY)
 
 
 def search_accounting_law(query: str, k: int = 5) -> list[dict[str, Any]]:
@@ -57,6 +61,9 @@ def build_accounting_agent_graph(model: Any):
 def run_accounting_agent(query: str, k: int = 5, model: Any | None = None, max_steps: int = MAX_STEPS, sub_queries: list[str] | None = None) -> dict[str, Any]:
     settings = get_settings()
     cleaned_query = clean_query(query)
+    clarification = clarification_for_query(cleaned_query, ACCOUNTING_DOMAIN)
+    if clarification:
+        return {"query": cleaned_query, "answer": clarification, "status": "needs_clarification", "citations": []}
     return run_domain_agent(
         cleaned_query, k, settings, SPEC, search_accounting_law, get_accounting_document, model=model, max_steps=max_steps, sub_queries=sub_queries
     )

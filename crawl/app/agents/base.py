@@ -14,6 +14,9 @@ from ..config import Settings
 from ..llm import ModelConfigurationError, build_structured_model
 from ..vectorstore import get_vectorstore
 from ..retrieval import get_hybrid_retriever
+from ..query_normalization import build_scenario_queries, clean_query
+from ..hop_planner import plan_next_hop
+from ..self_rag import critique_evidence
 
 logger = logging.getLogger(__name__)
 INSUFFICIENT_EVIDENCE = "Chưa đủ căn cứ từ dữ liệu hiện có để kết luận."
@@ -50,6 +53,9 @@ class DomainAgentState(TypedDict, total=False):
     cited_document_ids: list[str]
     status: str
     guardrail_warnings: list[str]
+    reflection_rounds: int
+    reflection_feedback: str
+    self_rag_critique: dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -74,25 +80,36 @@ def compact_evidence(document_id: str, text: str, metadata: dict[str, Any]) -> d
 def search_domain_law(settings: Settings, domain: str, retriever: Any, query: str, k: int, sub_queries: list[str] | None = None) -> list[dict[str, Any]]:
     ret = retriever(settings, domain=domain)
     queries_to_run = [query]
+    for scenario_query in build_scenario_queries(query, domain):
+        if scenario_query not in queries_to_run:
+            queries_to_run.append(scenario_query)
     if sub_queries:
         for sq in sub_queries:
-            if sq and sq not in queries_to_run:
-                queries_to_run.append(sq)
+            cleaned_sub_query = clean_query(sq)
+            if cleaned_sub_query and cleaned_sub_query not in queries_to_run:
+                queries_to_run.append(cleaned_sub_query)
     
-    seen_ids = set()
-    combined_evidence = []
-    
-    for q in queries_to_run:
-        results = ret.search(q, k=k)
-        for result in results:
-            doc_id = str(result.document.metadata.get("id", ""))
-            if not doc_id or doc_id in seen_ids:
-                continue
-            if result.document.metadata.get("domain") == domain:
-                seen_ids.add(doc_id)
-                combined_evidence.append(
-                    compact_evidence(doc_id, result.document.page_content, result.document.metadata)
-                )
+    seen_ids: set[str] = set()
+    combined_evidence: list[dict[str, Any]] = []
+
+    def collect(retrieval_queries: list[str], hop: int) -> None:
+        for q in retrieval_queries:
+            results = ret.search(q, k=k)
+            for result in results:
+                doc_id = str(result.document.metadata.get("id", ""))
+                if not doc_id or doc_id in seen_ids:
+                    continue
+                if result.document.metadata.get("domain") == domain:
+                    seen_ids.add(doc_id)
+                    item = compact_evidence(doc_id, result.document.page_content, result.document.metadata)
+                    item["retrieval_hop"] = hop
+                    combined_evidence.append(item)
+
+    collect(queries_to_run, 1)
+    next_hop = plan_next_hop(query, domain, combined_evidence)
+    if next_hop.queries:
+        collect(list(next_hop.queries), next_hop.hop)
+
     return combined_evidence
 
 
@@ -140,7 +157,11 @@ def _decide_node(state: DomainAgentState, model: Any, spec: DomainAgentSpec) -> 
         f"{spec.policy}\n\nCâu hỏi gốc: {state['query']}\n"
         f"Số bước đã dùng: {steps}/{max_steps}\nEvidence quan sát được:\n{_evidence_context(state)}\n\n"
         "Chọn action search, get_document hoặc final. Với search điền query; với get_document điền document_id. "
-        "Với final điền answer và cited_document_ids. Nếu chưa có evidence, không được chọn final. Trả lời tối đa 3-5 câu hoặc 3 gạch đầu dòng, không sao chép nguyên văn evidence."
+        "Với final điền answer và cited_document_ids. Nếu chưa có evidence, không được chọn final. "
+        "Nếu câu hỏi hỏi đầy đủ, điều kiện, ngoại lệ, thời điểm hiệu lực hoặc nhiều tình huống, "
+        "hãy chia câu trả lời thành từng mục theo từng trường hợp; mỗi mục chỉ được dùng evidence tương ứng. "
+        "Không suy ra ngoại lệ hoặc nghĩa vụ chỉ từ mốc thời gian. Nếu evidence thiếu một trường hợp, nói rõ trường hợp đó chưa đủ căn cứ. "
+        "Trả lời tối đa 5 mục ngắn, không sao chép nguyên văn evidence."
     )
     try:
         decision = model.invoke(prompt)
@@ -162,7 +183,16 @@ def _execute_tool_node(
     action = decision.get("action")
     if action == "search":
         tool_name = f"search_{spec.domain}_law"
-        result: Any = search_tool(decision.get("query") or state["query"], state.get("k", 5))
+        original_query = str(state.get("query", "")).strip()
+        requested_query = str(decision.get("query") or "").strip()
+        # The model may rewrite a search query and accidentally drop a
+        # decisive constraint such as vehicle type, tax subject, or employee
+        # category. Preserve the original query in every tool call.
+        if not requested_query or requested_query.casefold() in original_query.casefold():
+            search_query = original_query
+        else:
+            search_query = f"{original_query} {requested_query}".strip()
+        result: Any = search_tool(search_query, state.get("k", 5))
     elif action == "get_document":
         tool_name = f"get_{spec.domain}_document"
         result = document_tool(decision.get("document_id", ""))
@@ -183,7 +213,75 @@ def _execute_tool_node(
 
 
 def _route_after_decision(state: DomainAgentState) -> str:
-    return "execute_tool" if state.get("decision", {}).get("action") in {"search", "get_document"} else "finalize"
+    action = state.get("decision", {}).get("action")
+    if action in {"search", "get_document"}:
+        return "execute_tool"
+    max_rounds = int(getattr(state.get("settings"), "reflection_max_rounds", 0) or 0)
+    adaptive_review = bool(
+        getattr(state.get("settings"), "reflection_enabled", False)
+        or getattr(state.get("settings"), "self_rag_enabled", False)
+    )
+    if action == "final" and adaptive_review and state.get("reflection_rounds", 0) < max_rounds:
+        return "reflect"
+    return "finalize"
+
+
+def _reflection_node(state: DomainAgentState, model: Any, spec: DomainAgentSpec) -> dict[str, Any]:
+    """Critique a draft against observed evidence before finalization.
+
+    The reflector uses the same structured action schema as the agent. It can
+    accept/rewrite a grounded draft or request one bounded follow-up search.
+    """
+    decision = state.get("decision", {})
+    draft = str(decision.get("answer") or "").strip()
+    cited = decision.get("cited_document_ids") or []
+    critique = critique_evidence(
+        query=str(state.get("query", "")),
+        domain=spec.domain,
+        evidence=state.get("evidence", []),
+        cited_document_ids=cited,
+        draft=draft,
+    )
+    critique_state = {"self_rag_critique": critique.as_dict()}
+    if getattr(state.get("settings"), "self_rag_enabled", False) and critique.should_retrieve and critique.follow_up_queries:
+        return {
+            **critique_state,
+            "decision": ToolDecision(action="search", query=critique.follow_up_queries[0]).model_dump(),
+            "reflection_rounds": state.get("reflection_rounds", 0) + 1,
+            "reflection_feedback": "self_rag_requested_retrieval",
+        }
+    if not getattr(state.get("settings"), "reflection_enabled", False):
+        return {
+            **critique_state,
+            "reflection_rounds": state.get("reflection_rounds", 0) + 1,
+            "reflection_feedback": "self_rag_accepted",
+        }
+    prompt = (
+        f"Bạn là bộ phận reflection của {spec.agent_name}.\n"
+        "Kiểm tra bản nháp chỉ dựa trên evidence quan sát được.\n"
+        "Kiểm tra: mức phạt/số ngày/số điểm, Điều-Khoản, phương tiện hoặc đối tượng, "
+        "điều kiện/ngoại lệ và citation.\n"
+        "Nếu bản nháp đủ căn cứ, trả action=final, giữ hoặc rút gọn answer và cited_document_ids.\n"
+        "Nếu thiếu một căn cứ cần thiết, trả action=search với một query bổ sung cụ thể. "
+        "Không tự thêm dữ kiện pháp lý ngoài evidence.\n"
+        f"Câu hỏi: {state.get('query', '')}\n"
+        f"Bản nháp: {draft}\n"
+        f"Citation hiện tại: {cited}\n"
+        f"Evidence:\n{_evidence_context(state)}"
+    )
+    try:
+        reflected = model.invoke(prompt)
+        parsed = reflected if isinstance(reflected, ToolDecision) else ToolDecision.model_validate(reflected)
+    except Exception as exc:
+        logger.warning("%s reflection failed; keeping draft: %s", spec.agent_name, exc)
+        return {**critique_state, "reflection_rounds": state.get("reflection_rounds", 0) + 1, "reflection_feedback": "reflection_failed"}
+
+    return {
+        "decision": parsed.model_dump(),
+        "reflection_rounds": state.get("reflection_rounds", 0) + 1,
+        "reflection_feedback": "accepted" if parsed.action == "final" else "search_requested",
+        **critique_state,
+    }
 
 
 def _finalize_node(state: DomainAgentState, spec: DomainAgentSpec) -> dict[str, Any]:
@@ -235,10 +333,12 @@ def build_domain_agent_graph(
     graph = StateGraph(DomainAgentState)
     graph.add_node("decide", lambda state: _decide_node(state, model, spec))
     graph.add_node("execute_tool", lambda state: _execute_tool_node(state, spec, search_tool, document_tool))
+    graph.add_node("reflect", lambda state: _reflection_node(state, model, spec))
     graph.add_node("finalize", lambda state: _finalize_node(state, spec))
     graph.add_edge(START, "decide")
     graph.add_conditional_edges("decide", _route_after_decision)
     graph.add_edge("execute_tool", "decide")
+    graph.add_conditional_edges("reflect", _route_after_decision)
     graph.add_edge("finalize", END)
     return graph.compile()
 
@@ -264,7 +364,7 @@ def run_domain_agent(
             except Exception:
                 pass
         output = build_domain_agent_graph(spec, selected_model, search_tool, document_tool).invoke(
-            {"query": query, "k": k, "max_steps": max_steps, "settings": settings, "evidence": initial_evidence, "observations": [], "steps": 0},
+            {"query": query, "k": k, "max_steps": max_steps, "settings": settings, "evidence": initial_evidence, "observations": [], "steps": 0, "reflection_rounds": 0},
             config={"recursion_limit": max_steps * 3 + 3},
         )
         cited_ids = output.get("cited_document_ids", [])
@@ -291,6 +391,8 @@ def run_domain_agent(
         res = {"query": query, "answer": output.get("answer", spec.insufficient_answer), "status": output.get("status", "insufficient_evidence"), "citations": citations}
         if output.get("guardrail_warnings"):
             res["guardrail_warnings"] = output["guardrail_warnings"]
+        if output.get("self_rag_critique"):
+            res["self_rag_critique"] = output["self_rag_critique"]
         return res
     except AgentProviderError as exc:
         logger.warning("%s unavailable: %s", spec.agent_name, exc)

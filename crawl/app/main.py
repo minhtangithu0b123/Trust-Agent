@@ -6,7 +6,8 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
+from .streaming import stream_router_sse
 from pydantic import BaseModel, Field
 
 from .answering import answer_question
@@ -18,6 +19,7 @@ from .domains import CorpusNotFoundError, UnknownDomainError
 from .retrieval import get_hybrid_retriever
 from .router import run_router
 from .query_normalization import clean_query
+from .overview import build_domain_overview, detect_overview_domain
 from .vectorstore import get_vectorstore, ingest_domain, ingest_labor, search_domain, search_labor
 from .provenance import canonical_json, create_receipt, merkle_proof, receipt_db, verify_merkle_proof
 from .contributions import ContributionInput, list_contributions, review_contribution, submit_contribution
@@ -26,6 +28,7 @@ from .db import (
     ConversationUpdate,
     add_message,
     create_conversation,
+    delete_all_conversations,
     delete_conversation as delete_conversation_record,
     ensure_conversation,
     get_conversation,
@@ -83,9 +86,11 @@ _QUERY_API_PATHS = {
     "/search",
     "/search/hybrid",
     "/router/ask",
+    "/router/ask/stream",
     "/agents/traffic/ask",
     "/agents/labor/ask",
     "/agents/accounting/ask",
+    "/agents/tax/ask",
 }
 
 
@@ -123,6 +128,7 @@ class SearchRequest(BaseModel):
     thread_id: str | None = Field(default=None, description="Thread ID cho phiên hội thoại đa lượt")
     session_id: str | None = Field(default=None, description="Tương đương thread_id")
     conversation_id: str | None = Field(default=None, description="Conversation persistence ID")
+    stream: bool = Field(default=False, description="Bật chế độ Server-Sent Events (SSE) streaming")
 
 
 class ContributionReview(BaseModel):
@@ -173,6 +179,7 @@ def domain_settings(domain: str):
 
 
 def hybrid_response(settings, config, request: SearchRequest) -> dict[str, Any]:
+    request = clean_request(request)
     results = get_hybrid_retriever(settings, domain=config.name).search(request.query, request.k)
     return {
         "query": request.query,
@@ -222,6 +229,16 @@ def domain_health(domain: str) -> dict[str, Any]:
     return {"status": "ok", "domain": config.name, "collection": config.collection_name, "document_count": count}
 
 
+@app.get("/domains/{domain}/overview")
+def domain_overview(domain: str) -> dict[str, Any]:
+    settings, config = domain_settings(domain)
+    try:
+        return build_domain_overview(settings, config)
+    except Exception as exc:
+        logger.exception("Domain overview failed: %s", config.name)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 @app.post("/ingest")
 def ingest(
     request: IngestRequest | None = None,
@@ -256,6 +273,7 @@ def ingest_domain_endpoint(
 
 @app.post("/search")
 def search(request: SearchRequest) -> dict[str, Any]:
+    request = clean_request(request)
     try:
         documents = search_labor(get_settings(), request.query, request.k)
         return {"query": request.query, "results": [
@@ -269,6 +287,7 @@ def search(request: SearchRequest) -> dict[str, Any]:
 
 @app.post("/domains/{domain}/search")
 def domain_search(domain: str, request: SearchRequest) -> dict[str, Any]:
+    request = clean_request(request)
     settings, config = domain_settings(domain)
     try:
         documents = search_domain(settings, config.name, request.query, request.k)
@@ -361,10 +380,35 @@ def delete_conversation_endpoint(conversation_id: str) -> None:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return None
 
+
+@app.delete("/api/conversations", status_code=200)
+def delete_all_conversations_endpoint() -> dict[str, Any]:
+    """Clear visible conversations and their LangGraph memory."""
+    from .checkpoint import get_sqlite_checkpointer
+
+    deleted = delete_all_conversations()
+    get_sqlite_checkpointer().delete_all_threads()
+    return {"deleted": deleted}
+
 @app.post("/ask")
 def ask(request: SearchRequest) -> dict[str, Any]:
+    request = clean_request(request)
     try:
-        return answer_question(request.query, request.k, get_settings())
+        settings = get_settings()
+        config = settings.domain_config(settings.labor_domain) if hasattr(settings, "domain_config") else None
+        if config is not None and detect_overview_domain(request.query) == config.name:
+            overview = build_domain_overview(settings, config)
+            return {
+                "query": request.query,
+                "domain": config.name,
+                "answer": overview["answer"],
+                "status": overview["status"],
+                "citations": [],
+                "evidence": [],
+                "overview": overview,
+                "retrieval_strategy": "metadata_overview",
+            }
+        return answer_question(request.query, request.k, settings)
     except Exception as exc:
         logger.exception("Labor ask failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -372,17 +416,36 @@ def ask(request: SearchRequest) -> dict[str, Any]:
 
 @app.post("/domains/{domain}/ask")
 def domain_ask(domain: str, request: SearchRequest) -> dict[str, Any]:
+    request = clean_request(request)
     settings, config = domain_settings(domain)
     try:
+        if detect_overview_domain(request.query) == config.name:
+            overview = build_domain_overview(settings, config)
+            return {
+                "query": request.query,
+                "domain": config.name,
+                "answer": overview["answer"],
+                "status": overview["status"],
+                "citations": [],
+                "evidence": [],
+                "overview": overview,
+                "retrieval_strategy": "metadata_overview",
+            }
         return answer_question(request.query, request.k, settings, domain=config.name)
     except Exception as exc:
         logger.exception("Domain ask failed: %s", config.name)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 @app.post("/router/ask")
-def router_ask(request: SearchRequest) -> dict[str, Any]:
+def router_ask(request: SearchRequest) -> Any:
+    request = clean_request(request)
+    conversation_id = request.conversation_id or request.thread_id or request.session_id
+    if request.stream:
+        return StreamingResponse(
+            stream_router_sse(request.query, request.k, conversation_id),
+            media_type="text/event-stream",
+        )
     try:
-        conversation_id = request.conversation_id or request.thread_id or request.session_id
         conversation = ensure_conversation(
             conversation_id=conversation_id,
             default_title=request.query[:255],
@@ -415,6 +478,16 @@ def router_ask(request: SearchRequest) -> dict[str, Any]:
     except Exception as exc:
         logger.exception("Router ask failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/router/ask/stream")
+def router_ask_stream(request: SearchRequest) -> StreamingResponse:
+    request = clean_request(request)
+    conversation_id = request.conversation_id or request.thread_id or request.session_id
+    return StreamingResponse(
+        stream_router_sse(request.query, request.k, conversation_id),
+        media_type="text/event-stream",
+    )
 @app.post("/agents/traffic/ask")
 def traffic_agent_ask(request: SearchRequest) -> dict[str, Any]:
     try:
@@ -511,6 +584,7 @@ def labor_agent_ask(request: SearchRequest) -> dict[str, Any]:
 
 
 @app.post("/agents/accounting/ask")
+@app.post("/agents/tax/ask")
 def accounting_agent_ask(request: SearchRequest) -> dict[str, Any]:
     try:
         cleaned = clean_request(request)

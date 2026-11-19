@@ -8,6 +8,23 @@ def test_repair_mojibake():
     assert "Luật" in repair_text("LuÃƒÂ¢t")
 
 
+def test_repair_tax_invoice_ocr_and_canonical_title():
+    _, document = normalize_record({
+        "source": "../data/thue1.pdf",
+        "so_hieu": "108/2025/QH15",
+        "ten_van_ban": "thue1",
+        "chuong": "Chương II",
+        "dieu": "Điều 26",
+        "tieu_de_dieu": "Hóa đơn điện tử",
+        "khoan": "Khoản 5",
+        "text": "Hộ kinh doanh bán địch vụ phải lập hóa đơn gềm dữ liệu kết nói đữ liệu.",
+    }, 0, domain="accounting")
+    assert document.metadata["ten_van_ban"] == "Luật Quản lý thuế"
+    assert "dịch vụ" in document.page_content
+    assert "gồm" in document.page_content
+    assert "kết nối dữ liệu" in document.page_content
+
+
 def test_normalized_metadata():
     record_id, document = normalize_record({
         "source": "https://example.test/labor",

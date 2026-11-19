@@ -5,3 +5,6 @@ __pycache__/
 .DS_Store
 
 **/data/conversations.db
+**/data/conversations.db-wal
+**/data/conversations.db-shm
+.vercel

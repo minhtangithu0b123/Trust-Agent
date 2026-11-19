@@ -643,11 +643,19 @@ kbd {
   font-size: 10px;
   letter-spacing: .08em;
   color: #5c6759;
-  display: flex;
+  display: none !important;
   justify-content: space-between;
 }
 .footer-note > span { margin: 0 5px; color: #7f8a7c; }
 .footer-right { float: right; margin: 0 !important; }
+
+/* Keep the welcome screen focused on the input box. */
+.suggestion-label,
+.suggestions,
+.help-button,
+.topbar-divider {
+  display: none;
+}
 
 /* Help Modal Dialog */
 .modal-overlay {

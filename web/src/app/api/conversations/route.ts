@@ -36,3 +36,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ detail: "Cannot connect to Trust Agent API." }, { status: 502 });
   }
 }
+
+export async function DELETE() {
+  try {
+    return await forward(await fetch(upstreamUrl(), { method: "DELETE", headers: headers() }));
+  } catch {
+    return NextResponse.json({ detail: "Cannot connect to Trust Agent API." }, { status: 502 });
+  }
+}
