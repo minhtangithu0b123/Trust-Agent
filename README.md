@@ -290,21 +290,23 @@ structure_key, status, effective_from
 - SQLite local; PostgreSQL có thể cấu hình qua `DATABASE_URL`.
 - Docker Compose; Vercel frontend; `render.yaml` là blueprint tham khảo.
 
-## Models Used
+## Các model được sử dụng
 
-### 1. Language model for routing and domain agents
+### 1. Language model cho routing và domain agent
 
-The router classifier and the three domain agents use the provider selected by `LLM_PROVIDER`:
+Router classifier và ba domain agent sử dụng provider được chọn bởi `LLM_PROVIDER`:
 
-| Component | Model | Configuration | Role |
+| Thành phần | Model | Cấu hình | Vai trò |
 |---|---|---|---|
-| Router classification | OpenAI `gpt-4o-mini` or Gemini `gemini-3.5-flash-lite` | `OPENAI_MODEL` / `GEMINI_MODEL` | Classify domain and intent |
-| Traffic, Labor and Tax agents | Same configured provider/model | `LLM_PROVIDER` | Select tools, reason over retrieved evidence and return structured output |
-| Final multi-agent synthesis | OpenAI `gpt-4o-mini` when `OPENAI_API_KEY` is available | `OPENAI_MODEL` | Combine verified domain answers into one response |
+| Phân loại router | OpenAI `gpt-4o-mini` hoặc Gemini `gemini-3.5-flash-lite` | `OPENAI_MODEL` / `GEMINI_MODEL` | Phân loại domain và intent |
+| Agent giao thông, lao động, thuế | Provider/model được cấu hình | `LLM_PROVIDER` | Chọn tool, suy luận trên evidence và trả output có cấu trúc |
+| Tổng hợp kết quả nhiều agent | OpenAI `gpt-4o-mini` khi có `OPENAI_API_KEY` | `OPENAI_MODEL` | Gộp các câu trả lời domain đã kiểm chứng |
 
-The model does not receive the whole legal corpus. It receives the user query and the evidence selected by retrieval. If the provider is unavailable, the system uses a safe fallback or returns `provider_error`/`insufficient_evidence` instead of inventing a legal answer.
+Model không nhận toàn bộ corpus pháp luật. Model chỉ nhận query của người dùng và evidence do retrieval chọn. Nếu provider không khả dụng, hệ thống dùng safe fallback hoặc trả về `provider_error`/`insufficient_evidence` thay vì tự bịa câu trả lời pháp lý.
 
-Example configuration:
+Hiện cấu hình local trong `crawl/.env` đang dùng `gpt-4o-mini`. Nếu đổi sang model khác, cập nhật `OPENAI_MODEL` và cập nhật bảng này theo model thực tế.
+
+Cấu hình OpenAI:
 
 ```env
 LLM_PROVIDER=openai
@@ -312,7 +314,7 @@ OPENAI_MODEL=gpt-4o-mini
 OPENAI_API_KEY=your-key
 ```
 
-Gemini can be selected for routing and domain-agent generation:
+Có thể chọn Gemini cho routing và sinh câu trả lời của domain agent:
 
 ```env
 LLM_PROVIDER=gemini
@@ -326,7 +328,7 @@ GEMINI_API_KEY=your-key
 sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
 ```
 
-This multilingual Sentence Transformer converts Vietnamese queries and legal chunks into vectors for Chroma semantic search. The default device is CPU; `EMBEDDING_DEVICE` can be changed when a compatible GPU environment is available. The embedding model is loaded lazily and cached by the vector-store layer.
+Sentence Transformer đa ngôn ngữ chuyển query tiếng Việt và các legal chunk thành vector để Chroma tìm kiếm semantic. Mặc định chạy trên CPU; có thể đổi `EMBEDDING_DEVICE` khi môi trường có GPU tương thích. Model được load lazy và cache bởi vector-store layer.
 
 ### 3. Cross-encoder reranker
 
@@ -334,13 +336,13 @@ This multilingual Sentence Transformer converts Vietnamese queries and legal chu
 BAAI/bge-reranker-v2-m3
 ```
 
-This model scores query-document pairs after hybrid retrieval. It is optional and disabled by default (`RERANKER_ENABLED=false`). When enabled, the system reranks only a candidate set, uses batching and falls back to RRF if the model cannot be loaded.
+Model này chấm điểm cặp query-document sau hybrid retrieval. Đây là thành phần tùy chọn và mặc định tắt (`RERANKER_ENABLED=false`). Khi bật, hệ thống chỉ rerank một candidate set, xử lý theo batch và fallback về RRF nếu không load được model.
 
-### 4. Non-neural retrieval components
+### 4. Thành phần retrieval không dùng neural network
 
-- **BM25:** sparse keyword ranking for exact legal terms, article numbers, amounts and units.
-- **RRF:** deterministic rank fusion; not a model.
-- **Self-query, clarification, query expansion, decomposition and reflection:** rule-based controllers in the current implementation; they do not call an additional LLM.
+- **BM25:** xếp hạng keyword cho thuật ngữ pháp lý, số điều, mức tiền và đơn vị chính xác.
+- **RRF:** hợp nhất thứ hạng deterministic; không phải model.
+- **Self-query, clarification, query expansion, decomposition và reflection:** các bộ điều khiển rule-based trong implementation hiện tại; không gọi thêm LLM.
 
 ## Evaluation & Benchmarks
 
