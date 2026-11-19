@@ -1,0 +1,93 @@
+direction: right
+layout: elk
+
+classes: {
+  layer: {
+    style.fill: "#F8FAFC"
+    style.stroke: "#CBD5E1"
+    style.border-radius: 16
+    style.font-color: "#0F172A"
+  }
+  node: {
+    style.fill: "#FFFFFF"
+    style.stroke: "#94A3B8"
+    style.border-radius: 10
+    style.font-color: "#0F172A"
+  }
+  accent: {
+    style.fill: "#ECFDF5"
+    style.stroke: "#34D399"
+    style.border-radius: 10
+    style.font-color: "#064E3B"
+  }
+  optional: {
+    style.fill: "#FFFBEB"
+    style.stroke: "#F59E0B"
+    style.border-radius: 10
+    style.stroke-dash: 4
+    style.font-color: "#78350F"
+  }
+  store: {
+    shape: cylinder
+    style.fill: "#F1F5F9"
+    style.stroke: "#64748B"
+    style.font-color: "#0F172A"
+  }
+}
+
+client: Client & API {
+  direction: down
+  class: layer
+  web: "Next.js frontend" { class: node }
+  proxy: "Next.js API proxy" { class: node }
+  api: "FastAPI" { class: accent }
+  web -> proxy -> api
+}
+
+orchestration: Agent orchestration {
+  direction: down
+  class: layer
+  router: "LangGraph router" { class: accent }
+  agents: "Traffic · Labor · Tax agents" { class: node }
+  router -> agents
+}
+
+retrieval: Retrieval + knowledge base {
+  direction: down
+  class: layer
+  planner: "Normalize · expand · decompose\nmetadata / vehicle-aware filters" { class: node }
+  search: "Chroma vector + BM25\nRRF fusion" { class: accent }
+  context: "Parent context\nconditional cross-encoder" { class: optional }
+  corpus: "legal_traffic · legal_labor · legal_accounting\nChroma collections + document metadata" { class: store }
+  planner -> search -> context
+  corpus -> search
+}
+
+answer: Generation + guardrails {
+  direction: down
+  class: layer
+  evidence: "Evidence set" { class: node }
+  llm: "OpenAI or Gemini\nconfigurable LLM" { class: accent }
+  review: "Reflection / Self-RAG" { class: node }
+  guard: "Citation + quantitative\nguardrail" { class: accent }
+  evidence -> llm -> review -> guard
+}
+
+state: Conversation state {
+  direction: down
+  class: layer
+  conversations: "Conversations + messages\nSQLite / PostgreSQL" { class: store }
+  checkpoints: "LangGraph checkpoints\nSQLite" { class: store }
+  provenance: "Provenance receipts\nindex/version metadata" { class: store }
+}
+
+x402: "x402 paid traffic route" { class: optional; shape: hexagon }
+
+client.api -> orchestration.router
+orchestration.agents -> retrieval.planner
+retrieval.context -> answer.evidence
+answer.guard -> client.proxy
+client.api -> state.conversations: stores
+orchestration.router -> state.checkpoints: checkpoints
+answer.guard -> state.provenance: records
+x402 -> client.api: optional payment middleware

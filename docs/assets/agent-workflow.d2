@@ -1,0 +1,99 @@
+direction: right
+layout: elk
+
+classes: {
+  stage: {
+    style.fill: "#F8FAFC"
+    style.stroke: "#CBD5E1"
+    style.border-radius: 16
+    style.font-color: "#0F172A"
+  }
+  step: {
+    style.fill: "#FFFFFF"
+    style.stroke: "#94A3B8"
+    style.border-radius: 10
+    style.font-color: "#0F172A"
+  }
+  decision: {
+    shape: diamond
+    style.fill: "#FEF3C7"
+    style.stroke: "#F59E0B"
+    style.font-color: "#78350F"
+  }
+  safe: {
+    style.fill: "#ECFDF5"
+    style.stroke: "#34D399"
+    style.border-radius: 10
+    style.font-color: "#064E3B"
+  }
+  fallback: {
+    style.fill: "#FFF1F2"
+    style.stroke: "#FB7185"
+    style.border-radius: 10
+    style.font-color: "#881337"
+  }
+}
+
+start: "User query" { shape: oval; class: safe }
+
+route: 1. Route and context {
+  direction: down
+  class: stage
+  history: "Load conversation memory" { class: step }
+  clean: "Normalize query" { class: step }
+  intent: "Intent + domain" { class: decision }
+  overview: "Overview response" { class: step }
+  clarify: "Ask clarification" { class: step }
+  history -> clean -> intent
+  intent -> overview: overview
+  intent -> clarify: missing context
+}
+
+plan: 2. Plan query {
+  direction: down
+  class: stage
+  dispatch: "Dispatch domain agent" { class: safe }
+  rewrite: "Expand + decompose" { class: step }
+  filters: "Metadata / vehicle-aware filters" { class: step }
+  dispatch -> rewrite -> filters
+}
+
+retrieve: 3. Retrieve evidence {
+  direction: down
+  class: stage
+  hybrid: "Chroma + BM25 + RRF" { class: step }
+  parent: "Parent-context expansion" { class: step }
+  rank: "Complex or low confidence?" { class: decision }
+  rerank: "Cross-encoder reranking\nconditional" { class: step }
+  evidence: "Ranked evidence" { class: safe }
+  hybrid -> parent -> rank
+  rank -> rerank: yes
+  rank -> evidence: no
+  rerank -> evidence
+}
+
+answer: 4. Review and answer {
+  direction: down
+  class: stage
+  reflect: "Reflection / Self-RAG" { class: step }
+  enough: "Evidence sufficient?" { class: decision }
+  generate: "Concise grounded answer" { class: step }
+  verify: "Citation verification\nquantitative guardrail" { class: step }
+  verified: "Verified answer" { class: safe }
+  fallback: "Safe fallback\ninsufficient evidence" { class: fallback }
+  reflect -> enough
+  enough -> generate: yes
+  enough -> fallback: no
+  generate -> verify -> verified
+}
+
+save: "Save conversation + checkpoint" { class: step }
+
+start -> route.history
+route.intent -> plan.dispatch: legal question
+plan.filters -> retrieve.hybrid
+retrieve.evidence -> answer.reflect
+route.overview -> save
+route.clarify -> save
+answer.verified -> save
+answer.fallback -> save
