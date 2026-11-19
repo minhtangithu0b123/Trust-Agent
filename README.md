@@ -10,11 +10,69 @@ Mục tiêu của dự án là xây dựng một hệ thống pháp lý có th�
 
 ## Problem Statement
 
-Semantic search có thể bỏ sót số hiệu văn bản, Điều, Khoản, mức phạt hoặc đơn vị số. LLM cũng có thể trộn quy định giữa ô tô và xe máy hoặc tạo citation không tồn tại. Pipeline của dự án là:
+### Bối cảnh
+
+Tra cứu pháp luật Việt Nam không chỉ là bài toán tìm một đoạn văn có nội dung gần với câu hỏi. Một câu hỏi thực tế thường chứa các ràng buộc pháp lý quan trọng như loại phương tiện, hành vi vi phạm, mức tiền phạt, số điểm bị trừ, số hiệu văn bản, Điều/Khoản, thời điểm áp dụng hoặc đối tượng chịu tác động.
+
+Ví dụ, hai câu hỏi “ô tô vượt đèn đỏ bị phạt bao nhiêu?” và “xe máy vượt đèn đỏ bị phạt bao nhiêu?” có cùng chủ đề nhưng có thể dẫn đến Điều, mức phạt và số điểm khác nhau. Nếu hệ thống chỉ dựa vào semantic similarity, nó dễ lấy đúng chủ đề nhưng sai đối tượng áp dụng.
+
+### Các vấn đề cần giải quyết
+
+1. **Tìm kiếm theo ngữ nghĩa chưa đủ cho văn bản pháp luật**
+
+   Dense retrieval phù hợp để hiểu các cách diễn đạt khác nhau, nhưng có thể bỏ sót các token chính xác như số hiệu nghị định, số Điều/Khoản, mức tiền, tốc độ, nồng độ hoặc đơn vị. Ngược lại, tìm kiếm từ khóa thuần túy khó xử lý cách hỏi tự nhiên và từ đồng nghĩa. Vì vậy hệ thống cần kết hợp semantic search với BM25.
+
+2. **Các quy định gần giống nhau nhưng khác điều kiện áp dụng**
+
+   Corpus giao thông có nhiều quy định song song cho ô tô, xe máy, xe máy chuyên dùng, người điều khiển và người được chở. Corpus lao động và thuế cũng có các nhánh khác nhau theo loại hợp đồng, vai trò hoặc loại người nộp thuế. Nếu không lọc metadata và ràng buộc domain, retrieval có thể đưa evidence đúng chủ đề nhưng sai trường hợp.
+
+3. **Câu hỏi thường thiếu thông tin hoặc chứa nhiều ý**
+
+   Người dùng có thể hỏi “không đội mũ bảo hiểm bị phạt thế nào?” nhưng không nói rõ người điều khiển hay người được chở; hoặc hỏi cùng lúc mức phạt, điểm giấy phép và xử phạt bổ sung. Hệ thống phải nhận diện khi nào cần hỏi lại, khi nào có thể tách câu hỏi thành các sub-query và khi nào evidence chưa đủ để kết luận.
+
+4. **LLM có nguy cơ tạo câu trả lời hợp lý nhưng không có căn cứ**
+
+   LLM có thể bưng nguyên văn chunk, trộn hai điều khoản, tự tạo số tiền hoặc ghi citation không tồn tại trong evidence. Với bài toán pháp luật, câu trả lời trôi chảy nhưng sai căn cứ nguy hiểm hơn việc trả lời “chưa đủ căn cứ”. Vì vậy citation phải được tạo từ metadata thực tế và các claim định lượng phải được kiểm tra sau generation.
+
+5. **Dữ liệu pháp luật không đồng nhất**
+
+   Dữ liệu crawl từ nhiều nguồn có thể khác encoding, cách ghi Điều/Khoản, tiêu đề, số hiệu và độ dài chunk. Một chunk quá dài, đặc biệt là bảng phạt, làm loãng embedding và khiến một đoạn chứa nhiều phương tiện hoặc nhiều mức phạt cạnh tranh nhau trong retrieval. Pipeline cần normalization, metadata schema, deduplication và parent-context phù hợp.
+
+6. **Độ chính xác và độ trễ có trade-off**
+
+   Cross-encoder thường giúp xếp hạng chính xác hơn nhưng phải tải model và chấm từng cặp query-document, làm tăng latency và chi phí tài nguyên CPU/GPU. Do đó hệ thống không rerank mọi câu hỏi; nó dùng policy deterministic để chỉ rerank những truy vấn dài, có nhiều điều kiện, số liệu hoặc độ tách biệt RRF thấp.
+
+### Yêu cầu thiết kế
+
+Từ các vấn đề trên, hệ thống cần đáp ứng các yêu cầu sau:
+
+- **Domain-aware:** không để evidence giao thông, lao động và thuế trộn lẫn.
+- **Evidence-grounded:** câu trả lời phải dựa trên các document đã truy xuất trong cùng request.
+- **Metadata-aware:** hỗ trợ lọc theo domain, văn bản, Điều, Khoản và nhóm phương tiện.
+- **Safe under uncertainty:** hỏi lại khi thiếu biến quan trọng và trả `insufficient_evidence` khi corpus không chứng minh được claim.
+- **Traceable:** citation được dựng từ metadata thật, gồm document ID, văn bản, Điều/Khoản và nguồn.
+- **Cost/latency-aware:** giữ RRF làm đường mặc định, chỉ bật reranker khi cần.
+- **Maintainable:** có thể ingest thêm dữ liệu, loại bản ghi trùng và đánh giá riêng từng domain.
+
+### Mục tiêu và phạm vi
+
+Mục tiêu của dự án là xây dựng một pipeline hỏi đáp pháp luật có thể kiểm tra được: từ routing, retrieval, generation đến citation verification. Chất lượng được theo dõi bằng Recall@K và MRR trên benchmark retrieval, đồng thời giữ lại các trạng thái an toàn để phân biệt câu trả lời có căn cứ với trường hợp chưa đủ dữ liệu.
+
+Hệ thống không nhằm thay thế luật sư, tự quyết định hiệu lực pháp lý trong mọi tình huống, hoặc bảo đảm rằng corpus luôn đầy đủ và cập nhật. Tính đúng đắn cuối cùng vẫn phụ thuộc vào chất lượng nguồn crawl, metadata, thời điểm áp dụng và việc người dùng cung cấp đủ bối cảnh.
+
+### Pipeline giải quyết bài toán
 
 ```text
-Câu hỏi -> routing/intent -> clarification -> hybrid retrieval
-         -> rerank tùy chọn -> grounded answer -> citation guardrail
+Câu hỏi + lịch sử hội thoại
+    -> normalize và nhận diện intent/domain
+    -> overview hoặc clarification nếu phù hợp
+    -> query expansion/decomposition
+    -> metadata filter + hybrid retrieval
+    -> RRF và parent-context expansion
+    -> rerank có điều kiện
+    -> grounded answer generation
+    -> reflection + citation/quantitative guardrail
+    -> answer, citations và trạng thái an toàn
 ```
 
 ## Key Features
