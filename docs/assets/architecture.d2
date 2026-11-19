@@ -1,5 +1,4 @@
-direction: right
-layout: elk
+direction: down
 
 classes: {
   layer: {
@@ -35,53 +34,53 @@ classes: {
   }
 }
 
-client: Client & API {
+client: Lớp client & API {
   direction: down
   class: layer
-  web: "Next.js frontend" { class: node }
-  proxy: "Next.js API proxy" { class: node }
+  web: "Frontend Next.js" { class: node }
+  proxy: "API proxy Next.js" { class: node }
   api: "FastAPI" { class: accent }
   web -> proxy -> api
 }
 
-orchestration: Agent orchestration {
+orchestration: Điều phối agent {
   direction: down
   class: layer
   router: "LangGraph router" { class: accent }
-  agents: "Traffic · Labor · Tax agents" { class: node }
+  agents: "Agent giao thông · lao động · thuế" { class: node }
   router -> agents
 }
 
-retrieval: Retrieval + knowledge base {
+retrieval: Truy xuất + cơ sở tri thức {
   direction: down
   class: layer
-  planner: "Normalize · expand · decompose\nmetadata / vehicle-aware filters" { class: node }
-  search: "Chroma vector + BM25\nRRF fusion" { class: accent }
-  context: "Parent context\nconditional cross-encoder" { class: optional }
-  corpus: "legal_traffic · legal_labor · legal_accounting\nChroma collections + document metadata" { class: store }
+  planner: "Chuẩn hóa · mở rộng · phân rã\nlọc metadata / theo phương tiện" { class: node }
+  search: "Chroma vector + BM25\nhợp nhất RRF" { class: accent }
+  context: "Ngữ cảnh parent\ncross-encoder có điều kiện" { class: optional }
+  corpus: "legal_traffic · legal_labor · legal_accounting\ncollection Chroma + metadata tài liệu" { class: store }
   planner -> search -> context
   corpus -> search
 }
 
-answer: Generation + guardrails {
+answer: Sinh câu trả lời + guardrail {
   direction: down
   class: layer
-  evidence: "Evidence set" { class: node }
-  llm: "OpenAI or Gemini\nconfigurable LLM" { class: accent }
+  evidence: "Tập evidence" { class: node }
+  llm: "OpenAI hoặc Gemini\nLLM cấu hình được" { class: accent }
   review: "Reflection / Self-RAG" { class: node }
-  guard: "Citation + quantitative\nguardrail" { class: accent }
+  guard: "Citation + định lượng\nguardrail" { class: accent }
   evidence -> llm -> review -> guard
 }
 
-state: Conversation state {
+state: Trạng thái hội thoại {
   direction: down
   class: layer
-  conversations: "Conversations + messages\nSQLite / PostgreSQL" { class: store }
-  checkpoints: "LangGraph checkpoints\nSQLite" { class: store }
-  provenance: "Provenance receipts\nindex/version metadata" { class: store }
+  conversations: "Hội thoại + tin nhắn\nSQLite / PostgreSQL" { class: store }
+  checkpoints: "Checkpoint LangGraph\nSQLite" { class: store }
+  provenance: "Receipt provenance\nmetadata chỉ mục/phiên bản" { class: store }
 }
 
-x402: "x402 paid traffic route" { class: optional; shape: hexagon }
+x402: "Route giao thông trả phí x402" { class: optional; shape: hexagon }
 
 client.api -> orchestration.router
 orchestration.agents -> retrieval.planner
@@ -90,4 +89,4 @@ answer.guard -> client.proxy
 client.api -> state.conversations: stores
 orchestration.router -> state.checkpoints: checkpoints
 answer.guard -> state.provenance: records
-x402 -> client.api: optional payment middleware
+x402 -> client.api: middleware thanh toán tùy chọn

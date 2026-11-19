@@ -1,5 +1,4 @@
-direction: right
-layout: elk
+direction: down
 
 classes: {
   stage: {
@@ -34,63 +33,63 @@ classes: {
   }
 }
 
-start: "User query" { shape: oval; class: safe }
+start: "Câu hỏi người dùng" { shape: oval; class: safe }
 
-route: 1. Route and context {
+route: 1. Định tuyến và ngữ cảnh {
   direction: down
   class: stage
-  history: "Load conversation memory" { class: step }
-  clean: "Normalize query" { class: step }
-  intent: "Intent + domain" { class: decision }
-  overview: "Overview response" { class: step }
-  clarify: "Ask clarification" { class: step }
+  history: "Nạp bộ nhớ hội thoại" { class: step }
+  clean: "Chuẩn hóa query" { class: step }
+  intent: "Intent + lĩnh vực" { class: decision }
+  overview: "Trả lời tổng quan" { class: step }
+  clarify: "Hỏi lại để làm rõ" { class: step }
   history -> clean -> intent
-  intent -> overview: overview
-  intent -> clarify: missing context
+  intent -> overview: tổng quan
+  intent -> clarify: thiếu ngữ cảnh
 }
 
-plan: 2. Plan query {
+plan: 2. Lập kế hoạch query {
   direction: down
   class: stage
-  dispatch: "Dispatch domain agent" { class: safe }
-  rewrite: "Expand + decompose" { class: step }
-  filters: "Metadata / vehicle-aware filters" { class: step }
+  dispatch: "Chuyển đến agent lĩnh vực" { class: safe }
+  rewrite: "Mở rộng + phân rã query" { class: step }
+  filters: "Lọc metadata / theo phương tiện" { class: step }
   dispatch -> rewrite -> filters
 }
 
-retrieve: 3. Retrieve evidence {
+retrieve: 3. Truy xuất evidence {
   direction: down
   class: stage
   hybrid: "Chroma + BM25 + RRF" { class: step }
-  parent: "Parent-context expansion" { class: step }
-  rank: "Complex or low confidence?" { class: decision }
-  rerank: "Cross-encoder reranking\nconditional" { class: step }
-  evidence: "Ranked evidence" { class: safe }
+  parent: "Mở rộng ngữ cảnh parent" { class: step }
+  rank: "Query phức tạp hoặc\nđộ tin cậy thấp?" { class: decision }
+  rerank: "Xếp hạng lại bằng cross-encoder\ncó điều kiện" { class: step }
+  evidence: "Evidence đã xếp hạng" { class: safe }
   hybrid -> parent -> rank
-  rank -> rerank: yes
-  rank -> evidence: no
+  rank -> rerank: có
+  rank -> evidence: không
   rerank -> evidence
 }
 
-answer: 4. Review and answer {
+answer: 4. Reflection và trả lời {
   direction: down
   class: stage
   reflect: "Reflection / Self-RAG" { class: step }
-  enough: "Evidence sufficient?" { class: decision }
-  generate: "Concise grounded answer" { class: step }
-  verify: "Citation verification\nquantitative guardrail" { class: step }
-  verified: "Verified answer" { class: safe }
-  fallback: "Safe fallback\ninsufficient evidence" { class: fallback }
+  enough: "Evidence có đủ không?" { class: decision }
+  generate: "Sinh câu trả lời ngắn gọn\nbám evidence" { class: step }
+  verify: "Kiểm chứng citation\nguardrail định lượng" { class: step }
+  verified: "Câu trả lời đã kiểm chứng" { class: safe }
+  fallback: "Fallback an toàn\nchưa đủ evidence" { class: fallback }
   reflect -> enough
-  enough -> generate: yes
-  enough -> fallback: no
+  enough -> generate: có
+  enough -> fallback: không
   generate -> verify -> verified
 }
 
-save: "Save conversation + checkpoint" { class: step }
+save: "Lưu hội thoại + checkpoint" { class: step }
 
 start -> route.history
-route.intent -> plan.dispatch: legal question
+route.intent -> plan.dispatch: câu hỏi pháp luật
 plan.filters -> retrieve.hybrid
 retrieve.evidence -> answer.reflect
 route.overview -> save

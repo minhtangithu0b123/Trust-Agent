@@ -89,11 +89,11 @@ Câu hỏi + lịch sử hội thoại
 - Citation guardrail kiểm tra document ID, domain, Điều/Khoản và claim định lượng.
 - SSE streaming, lịch sử hội thoại, crawler và deduplication dữ liệu.
 
-## System Architecture
+## Kiến trúc hệ thống
 
 ![Trust Agent system architecture](docs/assets/architecture.svg)
 
-The architecture diagram is authored in [D2](docs/assets/architecture.d2). It separates the request path from retrieval, generation/guardrails, persistence, and the optional x402 payment middleware.
+Sơ đồ được viết bằng [D2](docs/assets/architecture.d2), tách rõ luồng request, retrieval, sinh câu trả lời/guardrail, lưu trữ và middleware thanh toán x402 tùy chọn.
 
 <details hidden><summary>Legacy inline diagram</summary>
 ```mermaid
@@ -179,11 +179,11 @@ flowchart TD
     PROXY -. paid request .-> X402 -. verifies .-> API
 ```
 </details>
-## Agent Workflow
+## Luồng hoạt động của Agent
 
 ![Trust Agent agent workflow](docs/assets/agent-workflow.svg)
 
-The workflow diagram is authored in [D2](docs/assets/agent-workflow.d2). It shows routing, clarification/overview branches, query planning, hybrid retrieval, conditional reranking, reflection, citation verification, and safe fallback.
+Sơ đồ được viết bằng [D2](docs/assets/agent-workflow.d2), mô tả định tuyến, nhánh hỏi lại/tổng quan, lập kế hoạch query, hybrid retrieval, rerank có điều kiện, reflection, kiểm chứng citation và fallback an toàn.
 
 <details hidden><summary>Legacy inline diagram</summary>
 ```mermaid
