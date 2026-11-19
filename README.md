@@ -101,8 +101,11 @@ flowchart TD
     end
 
     subgraph ORCH[2. Application & Agent Layer]
-        direction LR
-        API[FastAPI API] --> ROUTER[LangGraph Router] --> AGENTS[Domain Agents<br/>Traffic · Labor · Tax]
+        direction TB
+        API[FastAPI API] --> ROUTER[LangGraph Router]
+        ROUTER --> TRAFFIC[Traffic Agent]
+        ROUTER --> LABOR[Labor Agent]
+        ROUTER --> TAX[Tax Agent]
     end
 
     subgraph PLAN[3. Query Planning]
@@ -121,27 +124,54 @@ flowchart TD
         RRF --> FILTER
     end
 
-    subgraph CONTEXT[5. Context & Ranking]
+    subgraph CORPUS[5. Legal Corpus Layer]
+        direction LR
+        TRAFFIC_DB[(legal_traffic<br/>Traffic Chroma Collection)]
+        LABOR_DB[(legal_labor<br/>Labor Chroma Collection)]
+        TAX_DB[(legal_accounting<br/>Tax Chroma Collection)]
+        META[Structured Metadata<br/>Document · Article · Clause · Source]
+        TRAFFIC_DB --- META
+        LABOR_DB --- META
+        TAX_DB --- META
+    end
+
+    subgraph CONTEXT[6. Context & Ranking]
         direction LR
         PARENT[Parent Context] --> RERANK[Optional<br/>Cross-Encoder]
     end
 
-    subgraph SAFETY[6. Answer Safety]
+    subgraph SAFETY[7. Answer Safety]
         direction LR
         EVIDENCE[Evidence Set] --> REFLECT[Reflection<br/>Self-RAG] --> GUARD[Citation &<br/>Quantitative Guardrail]
     end
 
     MODEL[OpenAI or Gemini<br/>Grounded Answer]
 
+    subgraph PERSIST[8. Persistence & Monetization]
+        direction LR
+        MEMORY[(SQLite / PostgreSQL<br/>Conversations · Checkpoints)]
+        PROVENANCE[(Provenance DB<br/>Receipts · Index Version)]
+        X402[x402 Payment Middleware<br/>Optional paid traffic endpoint]
+    end
+
     U --> FE
     PROXY --> API
-    AGENTS --> NORMALIZE
+    TRAFFIC --> NORMALIZE
+    LABOR --> NORMALIZE
+    TAX --> NORMALIZE
     EXPAND --> DENSE
     EXPAND --> SPARSE
     FILTER --> PARENT
+    TRAFFIC_DB --> DENSE
+    LABOR_DB --> DENSE
+    TAX_DB --> DENSE
+    META --> FILTER
     RERANK --> EVIDENCE
     GUARD --> MODEL
     MODEL --> PROXY
+    API -. stores .-> MEMORY
+    GUARD -. records .-> PROVENANCE
+    PROXY -. paid request .-> X402 -. verifies .-> API
 ```
 
 Frontend có thể chạy trên Vercel; backend chạy local, Docker hoặc container platform. API proxy giữ secret LLM ở server-side.
