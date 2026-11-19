@@ -278,6 +278,39 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000/router/ask" `
   -Body ([Text.Encoding]::UTF8.GetBytes($body))
 ```
 
+## x402 Payment Layer
+
+x402 là lớp thanh toán HTTP cho endpoint trả phí; nó không thay thế LLM và không ảnh hưởng đến retrieval miễn phí. Trong Trust Agent, middleware x402 bảo vệ `POST /paid/traffic/ask`: client phải gửi payment proof hợp lệ trước khi backend xử lý câu hỏi giao thông.
+
+Luồng hoạt động:
+
+```text
+Client -> gửi request đến paid endpoint
+       -> x402 middleware kiểm tra payment
+       -> facilitator xác nhận giao dịch
+       -> Traffic Agent xử lý RAG
+       -> trả answer, citations và provenance receipt
+```
+
+Các biến cấu hình:
+
+```env
+X402_ENABLED=false
+X402_PRICE_USD=0.01
+X402_NETWORK=eip155:84532
+X402_PAY_TO=0x...
+X402_FACILITATOR_URL=https://x402.org/facilitator
+```
+
+Khi bật `X402_ENABLED=true`, backend yêu cầu `X402_PAY_TO` và `X402_FACILITATOR_URL`, đồng thời cài payment extra:
+
+```powershell
+cd D:\Trust-AGENT\crawl
+\.venv\Scripts\python.exe -m pip install -e ".[payments]"
+```
+
+`X402_PAY_TO` là địa chỉ ví public nhận thanh toán trên đúng network, không phải private key. Không commit private key, seed phrase, API key hoặc token vào GitHub; local có thể để x402 tắt để kiểm thử RAG thông thường.
+
 ## Demo
 
 Frontend cung cấp giao diện chat, lịch sử hội thoại, citation và trạng thái grounding. Khi có ảnh demo đã commit vào repo, đặt trong `docs/assets/` và nhúng bằng đường dẫn tương đối. README không gắn ảnh giả hoặc số liệu demo chưa được lưu trong repository.
