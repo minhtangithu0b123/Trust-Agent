@@ -179,25 +179,62 @@ Frontend có thể chạy trên Vercel; backend chạy local, Docker hoặc cont
 ## Agent Workflow
 
 ```mermaid
-sequenceDiagram
-    participant User
-    participant Router
-    participant Agent
-    participant Retriever
-    participant Verifier
-    participant LLM
-    User->>Router: Câu hỏi + lịch sử hội thoại
-    Router->>Router: Normalize, classify, overview check
-    Router->>Router: Clarification nếu thiếu thông tin
-    Router->>Agent: Chuyển đến domain agent
-    Agent->>Retriever: Expansion + sub-queries
-    Retriever-->>Agent: Dense + BM25 + RRF evidence
-    Agent->>Retriever: Rerank nếu query phức tạp
-    Retriever-->>Agent: Top-k evidence và parent context
-    Agent->>LLM: Evidence + schema trả lời
-    LLM-->>Verifier: Draft + cited document IDs
-    Verifier->>Verifier: Citation, domain, số liệu, grounding
-    Verifier-->>User: Answer + status + citations
+flowchart TD
+    START([User submits question])
+
+    subgraph ROUTING[1. Routing & Context]
+        direction TB
+        HISTORY[Load conversation history]
+        NORMALIZE[Normalize query]
+        INTENT{Intent and domain}
+        OVERVIEW[Overview response<br/>Read corpus metadata]
+        CLARIFY[Clarification response<br/>Ask for missing context]
+        HISTORY --> NORMALIZE --> INTENT
+    end
+
+    subgraph AGENT[2. Domain Agent]
+        direction TB
+        DISPATCH[Dispatch to Traffic / Labor / Tax Agent]
+        PLAN[Build query plan<br/>Expand · Decompose · Metadata filters]
+        DISPATCH --> PLAN
+    end
+
+    subgraph RETRIEVE[3. Evidence Retrieval]
+        direction TB
+        HYBRID[Hybrid retrieval<br/>Chroma + BM25 + RRF]
+        PARENT[Parent-context expansion]
+        DECIDE{Complex query?}
+        RERANK[Optional cross-encoder reranking]
+        EVIDENCE[Ranked evidence set]
+        HYBRID --> PARENT --> DECIDE
+        DECIDE -->|Yes| RERANK --> EVIDENCE
+        DECIDE -->|No| EVIDENCE
+    end
+
+    subgraph ANSWER[4. Grounded Answer & Safety]
+        direction TB
+        REFLECT[Reflection / Self-RAG<br/>Check relevance and coverage]
+        SUFFICIENT{Evidence sufficient?}
+        GENERATE[LLM generates concise answer<br/>and cited document IDs]
+        GUARD[Citation + quantitative guardrail]
+        VERIFIED([Verified answer])
+        INSUFFICIENT([Insufficient evidence])
+        REFLECT --> SUFFICIENT
+        SUFFICIENT -->|Yes| GENERATE --> GUARD
+        GUARD --> VERIFIED
+        SUFFICIENT -->|No| INSUFFICIENT
+    end
+
+    MEMORY[(Conversation memory)]
+
+    START --> HISTORY
+    INTENT -->|Overview| OVERVIEW
+    INTENT -->|Needs context| CLARIFY
+    INTENT -->|Legal question| DISPATCH
+    PLAN --> HYBRID
+    EVIDENCE --> REFLECT
+    VERIFIED -. save answer .-> MEMORY
+    INSUFFICIENT -. save status .-> MEMORY
 ```
 
 Các trạng thái chính: `verified`, `needs_clarification`, `insufficient_evidence` và `provider_error`.
