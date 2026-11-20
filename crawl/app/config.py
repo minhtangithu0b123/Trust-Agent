@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     ingest_admin_token: str = ""
     api_access_token: str = ""
     require_api_key: bool = False
+    trust_agent_web_url: str = "https://trust-agent-eight.vercel.app"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
