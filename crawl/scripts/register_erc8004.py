@@ -75,8 +75,9 @@ def fetch_public_metadata(agent_uri: str) -> dict:
     x402_service = next((item for item in services if isinstance(item, dict) and item.get("name") == "x402"), None)
     if not web_service or web_service.get("endpoint", "").rstrip("/") != web_url:
         raise RuntimeError(f"Metadata web service must point to TRUST_AGENT_WEB_URL ({web_url})")
-    if not x402_service or not x402_service.get("endpoint", "").endswith("/paid/traffic/ask"):
-        raise RuntimeError("Metadata must publish the x402 endpoint ending in /paid/traffic/ask")
+    x402_endpoint = x402_service.get("endpoint", "") if x402_service else ""
+    if not (x402_endpoint.endswith("/paid/traffic/ask") or x402_endpoint.endswith("/api/paid/ask")):
+        raise RuntimeError("Metadata must publish a valid x402 endpoint")
     if metadata.get("x402Support") is not True:
         raise RuntimeError("Public metadata says x402Support is not enabled; fix backend X402_ENABLED and redeploy")
     return metadata
@@ -189,7 +190,7 @@ def main() -> None:
     metadata["active"] = True
     metadata["x402Support"] = True
 
-    metadata_path = Path(os.getenv("ERC8004_METADATA_FILE", "app/agent-registration.example.json"))
+    metadata_path = Path(os.getenv("ERC8004_METADATA_FILE", "../web/public/agent-registration.json"))
     metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"Registered agentId={agent_id}; tx={tx_hash.hex()}; registry={registry_id}")
     print(f"Metadata updated: {metadata_path}")
