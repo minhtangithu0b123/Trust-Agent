@@ -62,6 +62,26 @@ async function ensureAvalancheFuji(provider: InjectedEvmProvider) {
   }
 }
 
+async function ensureAuthorizedAccount(
+  provider: InjectedEvmProvider,
+  address: Address,
+) {
+  const isAuthorized = (accounts: unknown) =>
+    Array.isArray(accounts) &&
+    accounts.some(
+      (account) =>
+        typeof account === "string" && account.toLowerCase() === address.toLowerCase(),
+    );
+
+  let accounts = await provider.request({ method: "eth_accounts" });
+  if (!isAuthorized(accounts)) {
+    accounts = await provider.request({ method: "eth_requestAccounts" });
+  }
+  if (!isAuthorized(accounts)) {
+    throw new Error("MetaMask chưa cấp quyền cho tài khoản đang kết nối. Hãy kết nối lại đúng ví rồi thử lại.");
+  }
+}
+
 export async function connectAvalancheFujiWallet(): Promise<Address> {
   const provider = getInjectedProvider();
   const accounts = await provider.request({ method: "eth_requestAccounts" });
@@ -84,14 +104,24 @@ export async function createPaidX402Client(address: Address) {
 
   const signer: ClientEvmSigner = {
     address,
-    signTypedData: (typedData) =>
-      walletClient.signTypedData({
-        account: address,
-        domain: typedData.domain as TypedDataDomain,
-        types: typedData.types as never,
-        primaryType: typedData.primaryType,
-        message: typedData.message as never,
-      } as never),
+    signTypedData: async (typedData) => {
+      await ensureAvalancheFuji(provider);
+      await ensureAuthorizedAccount(provider, address);
+      try {
+        return await walletClient.signTypedData({
+          account: address,
+          domain: typedData.domain as TypedDataDomain,
+          types: typedData.types as never,
+          primaryType: typedData.primaryType,
+          message: typedData.message as never,
+        } as never);
+      } catch (error) {
+        if ((error as { code?: number })?.code === 4100) {
+          throw new Error("MetaMask chưa cho phép ký bằng tài khoản này. Hãy kết nối lại ví rồi thử lại.");
+        }
+        throw error;
+      }
+    },
   };
 
   const client = new x402Client();
