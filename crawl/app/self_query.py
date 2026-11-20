@@ -69,23 +69,18 @@ def _vehicle_groups(routing_query: str) -> set[str]:
     return groups
 
 
-def _traffic_topic(routing_query: str) -> str | None:
-    """Map common traffic wording to a normalized clause topic."""
-    if "mu bao hiem" in routing_query or "doi mu" in routing_query:
-        return "helmet"
-    if "dien thoai" in routing_query or "thiet bi dien tu" in routing_query:
-        return "phone_use"
-    if "cho 2 nguoi" in routing_query or "cho theo 2 nguoi" in routing_query or "cho qua so nguoi" in routing_query:
-        return "passenger_overload"
-    if "vuot den do" in routing_query or "den tin hieu" in routing_query:
-        return "red_light"
-    if "day an toan" in routing_query or "day bao hiem" in routing_query:
-        return "seatbelt"
-    if "nong do con" in routing_query or "ruou bia" in routing_query:
-        return "alcohol"
-    if "toc do" in routing_query or "qua toc" in routing_query:
-        return "speed"
-    return None
+def _traffic_topics(routing_query: str) -> list[str]:
+    """Map all common traffic wording to normalized clause topics."""
+    checks = (
+        ("helmet", ("mu bao hiem", "doi mu")),
+        ("phone_use", ("dien thoai", "thiet bi dien tu")),
+        ("passenger_overload", ("cho 2 nguoi", "cho theo 2 nguoi", "cho qua so nguoi")),
+        ("red_light", ("vuot den do", "den tin hieu")),
+        ("seatbelt", ("day an toan", "day bao hiem")),
+        ("alcohol", ("nong do con", "ruou bia")),
+        ("speed", ("toc do", "qua toc")),
+    )
+    return [topic for topic, signals in checks if any(signal in routing_query for signal in signals)]
 
 
 def build_query_plan(query: str, domain: str) -> QueryPlan:
@@ -130,9 +125,9 @@ def build_query_plan(query: str, domain: str) -> QueryPlan:
                 metadata_filter["khoan"] = "Khoản 9" if group == "car" else "Khoản 7"
             elif "mu bao hiem" in routing_query and group == "motorbike":
                 metadata_filter["khoan"] = "Khoản 2"
-            topic = _traffic_topic(routing_query)
-            if topic:
-                metadata_filter["traffic_topics"] = topic
+            topics = _traffic_topics(routing_query)
+            if topics:
+                metadata_filter["traffic_topics"] = topics[0] if len(topics) == 1 else topics
 
     # These articles are the legal cluster for trial-period questions. Keep
     # all three because the answer may require the maximum duration, contract
@@ -141,7 +136,7 @@ def build_query_plan(query: str, domain: str) -> QueryPlan:
         metadata_filter["dieu"] = ["Điều 24", "Điều 25", "Điều 27"]
 
     if domain == "labor" and not dieu and any(
-        phrase in routing_query for phrase in ("nghi phep", "nghi hang nam")
+        phrase in routing_query for phrase in ("nghi phep", "nghi hang nam", "ngay phep")
     ):
         if "chua du 12" in routing_query or "chua du 12 thang" in routing_query:
             metadata_filter["dieu"] = ["Điều 113", "Điều 66"]
@@ -156,9 +151,14 @@ def build_query_plan(query: str, domain: str) -> QueryPlan:
     # Keep the three termination articles together because the answer may
     # need to distinguish employee notice, mutual termination, and employer
     # termination instead of silently selecting an unrelated labor clause.
-    if domain == "labor" and not dieu and any(
-        phrase in routing_query
-        for phrase in ("nghi viec", "bao truoc", "don phuong cham dut", "cham dut hop dong")
+    if (
+        domain == "labor"
+        and not dieu
+        and any(
+            phrase in routing_query
+            for phrase in ("nghi viec", "bao truoc", "don phuong cham dut", "cham dut hop dong")
+        )
+        and not any(phrase in routing_query for phrase in ("nghi phep", "nghi hang nam", "ngay phep"))
     ):
         metadata_filter["dieu"] = ["Điều 35", "Điều 36", "Điều 37"]
 

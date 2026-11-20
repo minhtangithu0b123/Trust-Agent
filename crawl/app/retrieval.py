@@ -255,17 +255,21 @@ class HybridRetriever:
 
             related = list(sibling_by_clause.values())
             routing_query = normalize_for_routing(query)
-            target_topic = str(metadata.get("traffic_topics", "")).strip()
-            if self.domain == "traffic" and target_topic:
+            target_topics = {
+                token.strip()
+                for token in str(metadata.get("traffic_topics", "")).split("|")
+                if token.strip()
+            }
+            if self.domain == "traffic" and target_topics:
                 # Do not reintroduce another offence from the same article
                 # (for example helmet evidence in a passenger query).
                 related = [
                     document for document in related
-                    if target_topic in {
+                    if target_topics.intersection({
                         token.strip()
                         for token in str(document.metadata.get("traffic_topics", "")).split("|")
                         if token.strip()
-                    }
+                    })
                 ]
             selected_is_penalty = "phạt tiền" in result.document.page_content.casefold()
             if selected_is_penalty:

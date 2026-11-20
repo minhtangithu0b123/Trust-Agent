@@ -206,22 +206,60 @@ def _keyword_classify(
         "traffic": (
             "giao thong", "duong bo", "xe may", "o to", "xe o to",
             "nong do con", "toc do", "bien bao", "bang lai", "giay phep lai xe",
-            "tai nan", "phat giao thong", "vi pham giao thong",
+                "tai nan", "phat nguoi", "cho muon xe", "phat giao thong", "vi pham giao thong",
+            "via he", "un tac", "mu bao hiem", "nguoi ngoi sau",
+            "cao toc", "dung do", "cong benh vien", "roi khoi hien truong",
         ),
         "labor": (
             "lao dong", "nguoi lao dong", "hop dong lao dong", "tien luong",
             "tien cong", "luong", "nghi phep", "nghi hang nam", "thu viec",
-            "sa thai", "cham dut hop dong", "gio lam viec", "bao hiem xa hoi",
+            "sa thai", "cham dut hop dong", "gio lam viec", "lam them",
+            "nhan vien", "bang tot nghiep", "giu bang", "cham tra luong",
+            "cat giam nhan su", "hop dong dao tao", "chi phi dao tao",
+            "nghi viec", "bao hiem xa hoi",
+            "ngay le", "ngay tet", "thai san", "dat coc", "nguoi lao dong nuoc ngoai",
+            "thu viec toi da", "ket hon", "pha san", "co phieu thay vi tien mat",
         ),
         "accounting": (
             "thue", "ke toan", "hoa don", "vat", "gtgt",
             "thu nhap ca nhan", "khau tru", "quyet toan thue", "doanh nghiep",
+            "mien thue", "nguoi phu thuoc", "giam tru gia canh", "sinh vien",
+            "shopee", "tiktok shop", "freelancer", "cong ty nuoc ngoai",
+            "bang usd", "hoa don dau vao", "chi phi duoc tru",
+            "cham nop", "tien cham nop", "ban o to", "gia tri gia tang",
+            "khau tru toan bo", "lao dong nuoc ngoai",
+            "phu cap an trua", "xang xe", "nhieu cua hang", "thue suat", "co phieu",
         ),
     }
     matched = [
         domain for domain, terms in keywords.items()
         if any(term in text for term in terms)
     ]
+    # "lÆ°Æ¡ng thÃ¡ng 13" is a tax question even though it contains the
+    # generic word "lÆ°Æ¡ng". Keep labor only when a labor-specific signal is
+    # also present, so the fallback does not fan out into an irrelevant agent.
+    labor_strong_terms = (
+        "lao dong", "nguoi lao dong", "hop dong", "lam them",
+        "nghi phep", "thu viec", "sa thai", "cham dut", "bao hiem xa hoi",
+        "dao tao", "nghi viec", "ngay le", "ngay tet", "thai san",
+        "dat coc", "ket hon", "pha san", "giao hang", "bang co phieu",
+        "co phieu thay vi tien mat",
+    )
+    if "labor" in matched and "accounting" in matched:
+        if not any(term in text for term in labor_strong_terms):
+            matched.remove("labor")
+    # Vehicle words also occur in tax questions (sale or business use of a
+    # car). Keep those queries in the tax domain unless they contain a
+    # traffic-specific offence or road-safety signal.
+    if "traffic" in matched and "accounting" in matched:
+        traffic_specific_terms = (
+            "giao thong", "duong bo", "xe may", "nong do con", "toc do",
+            "bien bao", "bang lai", "giay phep lai xe", "tai nan",
+            "phat nguoi", "vi pham giao thong", "via he", "mu bao hiem",
+            "nguoi ngoi sau", "un tac",
+        )
+        if not any(term in text for term in traffic_specific_terms):
+            matched.remove("traffic")
     return [
         {
             "domain": domain,
