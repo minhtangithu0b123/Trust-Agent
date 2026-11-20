@@ -649,6 +649,63 @@ kbd {
 .footer-note > span { margin: 0 5px; color: #7f8a7c; }
 .footer-right { float: right; margin: 0 !important; }
 
+.wallet-connect {
+  border: 1px solid #cbd5c8;
+  border-radius: 5px;
+  background: #f7f8f4;
+  color: #334638;
+  padding: 7px 9px;
+  font: 9px var(--mono);
+  letter-spacing: .04em;
+  cursor: pointer;
+}
+.wallet-connect:hover:not(:disabled) { background: #e9efe7; }
+.wallet-connect:disabled { opacity: .6; cursor: wait; }
+.wallet-connected { border-color: #98b49a; background: #edf4ea; }
+.paid-send-button {
+  min-height: 36px;
+  border: 1px solid #9a8659;
+  border-radius: 3px;
+  background: #f1ead9;
+  color: #4d432d;
+  padding: 0 11px;
+  font: 9px var(--mono);
+  font-weight: 700;
+  letter-spacing: .03em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.paid-send-button:hover:not(:disabled) { background: #e8dec6; }
+.paid-send-button:disabled { opacity: .4; cursor: not-allowed; }
+.x402-note {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+  align-items: center;
+  margin-top: 8px;
+  color: #687462;
+  font-size: 9px;
+  line-height: 1.5;
+}
+.x402-note > span:first-child {
+  font-weight: 700;
+  letter-spacing: .08em;
+  color: #596756;
+}
+.x402-wallet-notice { flex-basis: 100%; color: #4b654b; }
+.x402-history-note { color: #777d70; }
+.x402-receipt {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: center;
+  margin: 12px 0 0 49px;
+  color: #586650;
+  font-size: 10px;
+}
+.x402-receipt a { color: #496b50; font-weight: 700; text-decoration: underline; }
+.x402-receipt span:last-child { color: #727b6d; font-family: var(--mono); font-size: 9px; }
+
 /* Keep the welcome screen focused on the input box. */
 .suggestion-label,
 .suggestions,
@@ -1030,6 +1087,7 @@ kbd {
   .api-status { font-size: 0; gap: 0; }
   .api-status i { width: 7px; height: 7px; }
   .topbar-right { gap: 13px; }
+  .wallet-connect { padding: 6px 7px; font-size: 8px; }
   .welcome { padding: 30px 0; margin-top: 0; }
   .welcome h1 { font-size: clamp(44px, 13vw, 60px); margin-top: 21px; }
   .welcome-copy { font-size: 13px; }
@@ -1042,6 +1100,8 @@ kbd {
   .composer-hint kbd { font-size: 8px; }
   .composer-hint span { display: none; }
   .send-button { min-width: 105px; }
+  .paid-send-button { padding: 0 8px; font-size: 8px; }
+  .x402-receipt { margin-left: 0; }
   .answer-copy, .sources, .answer-note, .retry-button { margin-left: 0; }
 }
 

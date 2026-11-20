@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { connectBaseSepoliaWallet, createPaidX402Client } from "../lib/x402-client";
 
 type AnswerStatus =
   | "verified"
@@ -40,6 +41,8 @@ type Answer = {
   guardrail_status?: string;
   guardrail_warnings?: string[];
   citations?: Citation[];
+  provenance?: { receipt_id?: string; receipt_hash?: string; index_version?: string };
+  payment?: { scheme?: string; network?: string; transaction?: string; success?: boolean };
 };
 
 type Message = {
@@ -196,6 +199,9 @@ export default function Home() {
   const [deletingConversationId, setDeletingConversationId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [walletBusy, setWalletBusy] = useState(false);
+  const [walletNotice, setWalletNotice] = useState<string | null>(null);
 
   const textarea = useRef<HTMLTextAreaElement>(null);
   const bottom = useRef<HTMLDivElement>(null);
@@ -235,6 +241,24 @@ export default function Home() {
         .join(", ");
     }
     return typeof detail === "string" ? detail : String(detail ?? fallback);
+  }
+
+  async function connectWallet() {
+    setWalletBusy(true);
+    setWalletNotice(null);
+    try {
+      const address = await connectBaseSepoliaWallet();
+      setWalletAddress(address);
+      setWalletNotice("Ví đã kết nối trên Base Sepolia. API trả phí chỉ ký khi bạn xác nhận.");
+    } catch (error: unknown) {
+      setWalletNotice(error instanceof Error ? error.message : "Không thể kết nối ví.");
+    } finally {
+      setWalletBusy(false);
+    }
+  }
+
+  function shortAddress(address: string): string {
+    return `${address.slice(0, 6)}…${address.slice(-4)}`;
   }
 
   async function refreshConversations(): Promise<ConversationSummary[]> {
@@ -334,9 +358,13 @@ export default function Home() {
     return created;
   }
 
-  async function submitQuestion(value: string) {
+  async function submitQuestion(value: string, paid = false) {
     const query = value.trim();
     if (query.length < 2 || loading || loadingHistory) return;
+    if (paid && !walletAddress) {
+      setWalletNotice("Hãy kết nối ví trước khi gửi câu hỏi trả phí.");
+      return;
+    }
 
     abortControllerRef.current?.abort();
     const controller = new AbortController();
@@ -361,20 +389,32 @@ export default function Home() {
 
     try {
       let conversationId = threadId;
-      if (!conversationId) {
+      if (!paid && !conversationId) {
         const created = await createConversation(query, controller.signal);
         conversationId = created.id;
       }
 
-      const response = await fetch("/api/ask", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          accept: "text/event-stream, application/json",
-        },
-        body: JSON.stringify({ query, thread_id: conversationId, stream: true }),
-        signal: controller.signal,
-      });
+      let response: Response;
+      let paidClient: Awaited<ReturnType<typeof createPaidX402Client>> | null = null;
+      if (paid) {
+        paidClient = await createPaidX402Client(walletAddress as `0x${string}`);
+        response = await paidClient.fetchWithPayment("/api/paid/ask", {
+          method: "POST",
+          headers: { "content-type": "application/json", accept: "application/json" },
+          body: JSON.stringify({ query }),
+          signal: controller.signal,
+        });
+      } else {
+        response = await fetch("/api/ask", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            accept: "text/event-stream, application/json",
+          },
+          body: JSON.stringify({ query, thread_id: conversationId, stream: true }),
+          signal: controller.signal,
+        });
+      }
 
       const contentType = response.headers.get("content-type") || "";
 
@@ -457,11 +497,13 @@ export default function Home() {
 
         const resolvedConversationId =
           finalAnswer?.conversation_id || finalAnswer?.thread_id || conversationId;
-        setThreadId(resolvedConversationId);
-        window.localStorage.setItem(
-          "trust-agent-active-conversation",
-          resolvedConversationId,
-        );
+        if (resolvedConversationId) {
+          setThreadId(resolvedConversationId);
+          window.localStorage.setItem(
+            "trust-agent-active-conversation",
+            resolvedConversationId,
+          );
+        }
 
         setMessages((current) =>
           current.map((msg) =>
@@ -495,13 +537,31 @@ export default function Home() {
       }
 
       const answer = data as Answer;
-      const resolvedConversationId =
-        answer.conversation_id || answer.thread_id || conversationId;
-      setThreadId(resolvedConversationId);
-      window.localStorage.setItem(
-        "trust-agent-active-conversation",
-        resolvedConversationId,
-      );
+      if (paid && paidClient) {
+        try {
+          const settlement = paidClient.getSettlement(response);
+          if (settlement.success) {
+            answer.payment = {
+              ...answer.payment,
+              success: true,
+              transaction: settlement.transaction,
+              network: settlement.network,
+            };
+          }
+        } catch {
+          // The API response can still be useful if a facilitator omits its receipt header.
+        }
+      } else {
+        const resolvedConversationId =
+          answer.conversation_id || answer.thread_id || conversationId;
+        if (resolvedConversationId) {
+          setThreadId(resolvedConversationId);
+          window.localStorage.setItem(
+            "trust-agent-active-conversation",
+            resolvedConversationId,
+          );
+        }
+      }
 
       setMessages((current) => [
         ...current,
@@ -513,7 +573,7 @@ export default function Home() {
           answer,
         },
       ]);
-      void refreshConversations();
+      if (!paid) void refreshConversations();
     } catch (error: unknown) {
       if (error instanceof Error && error.name === "AbortError") {
         if (!pendingAssistantMessageId) return;
@@ -867,6 +927,15 @@ export default function Home() {
             <span className="topbar-divider" />
             <button
               type="button"
+              className={`wallet-connect ${walletAddress ? "wallet-connected" : ""}`}
+              onClick={() => void connectWallet()}
+              disabled={walletBusy}
+              title={walletAddress || "Kết nối ví Base Sepolia để gọi API x402"}
+            >
+              {walletBusy ? "ĐANG KẾT NỐI…" : walletAddress ? shortAddress(walletAddress) : "KẾT NỐI VÍ"}
+            </button>
+            <button
+              type="button"
               className="help-button"
               title="Thông tin trợ lý"
               aria-label="Thông tin trợ lý pháp luật"
@@ -976,6 +1045,21 @@ export default function Home() {
                           <span>i</span> Thông tin mang tính tham khảo, được tạo từ tài liệu hiện có.
                         </div>
                       )}
+                      {message.answer?.payment?.transaction && (
+                        <div className="x402-receipt">
+                          <span>Đã thanh toán 0.01 USDC · Base Sepolia</span>
+                          <a
+                            href={`https://sepolia.basescan.org/tx/${message.answer.payment.transaction}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Xem giao dịch ↗
+                          </a>
+                          {message.answer.provenance?.receipt_id && (
+                            <span>Mã bằng chứng: {message.answer.provenance.receipt_id}</span>
+                          )}
+                        </div>
+                      )}
                     </>
                   )}
                 </article>
@@ -1043,9 +1127,25 @@ export default function Home() {
                     </>
                   )}
                 </button>
+                <button
+                  className="paid-send-button"
+                  type="button"
+                  onClick={() => void submitQuestion(draft, true)}
+                  disabled={draft.trim().length < 2 || loading || loadingHistory || !walletAddress}
+                  title="Gọi paid API giao thông bằng x402; giá 0.01 USDC trên Base Sepolia"
+                >
+                  {loading ? "ĐANG XỬ LÝ" : "X402 · 0.01 USDC"}
+                </button>
               </span>
             </div>
           </form>
+          <div className="x402-note" role="status">
+            <span>TRẢ PHÍ CHỈ CHO LUẬT GIAO THÔNG</span>
+            <span>0.01 USDC · Base Sepolia</span>
+            {walletAddress && <span>Ví {shortAddress(walletAddress)}</span>}
+            {walletNotice && <span className="x402-wallet-notice">{walletNotice}</span>}
+            <span className="x402-history-note">Câu hỏi x402 hiện không được lưu vào lịch sử máy chủ.</span>
+          </div>
           <div className="footer-note">
             TRUST AGENT <span>·</span> TRA CỨU CÓ NGUỒN{" "}
             <span className="footer-right">PHÁP LUẬT VIỆT NAM</span>
