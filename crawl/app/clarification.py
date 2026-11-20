@@ -27,6 +27,14 @@ def clarification_for_query(query: str, domain: str) -> str | None:
             return "Bạn muốn hỏi người lái hay người được chở trên ô tô?"
         if any(term in routing for term in ("cho qua so nguoi", "qua so nguoi", "cho qua nguoi")) and not vehicle:
             return "Bạn muốn hỏi xe máy hay ô tô chở quá số người quy định?"
+        if any(term in routing for term in ("khong mang bang lai", "khong co bang lai", "khong co giay phep lai xe", "khong mang giay phep lai xe")) and not vehicle:
+            return "Bạn muốn tra cứu trường hợp này đối với ô tô hay xe máy?"
+        if (
+            any(term in routing for term in ("sang hom sau", "uong bia", "ruou tu toi", "con nong do con"))
+            and any(term in routing for term in ("nong do con", "ruou bia"))
+            and not vehicle
+        ):
+            return "Bạn muốn hỏi mức phạt đối với ô tô, xe máy hay loại phương tiện nào?"
 
     if domain == "labor":
         termination = any(term in routing for term in (

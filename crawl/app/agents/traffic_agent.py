@@ -72,6 +72,8 @@ def _reject_inconsistent_red_light_answer(query: str, result: dict[str, Any]) ->
     """
     if result.get("status") != "verified":
         return result
+
+
     routing_query = normalize_for_routing(query)
     routing_answer = normalize_for_routing(str(result.get("answer", "")))
     is_helmet_query = "mu bao hiem" in routing_query or "doi mu" in routing_query
@@ -125,6 +127,32 @@ def _reject_inconsistent_red_light_answer(query: str, result: dict[str, Any]) ->
         ],
     }
 
+
+def _reject_mixed_alcohol_thresholds(query: str, result: dict[str, Any]) -> dict[str, Any]:
+    """Do not present a second alcohol bracket that the question did not ask for."""
+    if result.get("status") != "verified":
+        return result
+    routing_query = normalize_for_routing(query)
+    routing_answer = normalize_for_routing(str(result.get("answer", "")))
+    if "nong do con" not in routing_query:
+        return result
+    asks_high = any(token in routing_query for token in ("0,4 mg/lit", "0.4 mg/lit", "04 mg lit", "04 miligam"))
+    asks_mid = any(token in routing_query for token in ("0,25", "0.25", "025", "025 04"))
+    has_high = bool(re.search(r"18[.]?000[.]?000", routing_answer))
+    has_mid = bool(re.search(r"6[.]?000[.]?000", routing_answer))
+    if (asks_high and has_mid) or (asks_mid and has_high):
+        logger.warning("Traffic alcohol answer mixed incompatible thresholds: query=%s", query)
+        return {
+            **result,
+            "answer": INSUFFICIENT_EVIDENCE,
+            "status": "insufficient_evidence",
+            "citations": [],
+            "guardrail_warnings": [
+                "Câu trả lời trộn nhiều ngưỡng nồng độ cồn; đã chặn để tránh áp dụng nhầm mức phạt."
+            ],
+        }
+    return result
+
 def _clarification_for_ambiguous_query(query: str) -> str | None:
     domain_clarification = clarification_for_query(query, TRAFFIC_DOMAIN)
     if domain_clarification:
@@ -174,4 +202,5 @@ def run_traffic_agent(query: str, k: int = 5, model: Any | None = None, max_step
     result = run_domain_agent(
         cleaned_query, k, settings, SPEC, search_traffic_law, get_traffic_document, model=model, max_steps=max_steps, sub_queries=sub_queries
     )
-    return _reject_inconsistent_red_light_answer(cleaned_query, result)
+    result = _reject_inconsistent_red_light_answer(cleaned_query, result)
+    return _reject_mixed_alcohol_thresholds(cleaned_query, result)

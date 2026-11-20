@@ -73,6 +73,27 @@ _RETRIEVAL_EXPANSIONS["traffic"] = _RETRIEVAL_EXPANSIONS["traffic"] + (
     ("toc do", "vượt quá tốc độ", "giới hạn tốc độ"),
     ("10 20 km h", "vượt quá tốc độ từ 10 km/h đến 20 km/h"),
     ("025 04 mg l", "nồng độ cồn từ 0,25 đến 0,4 mg/l khí thở"),
+    ("0,4 mg/lit", "nồng độ cồn vượt quá 0,4 miligam/1 lít khí thở", "Điều 7 Khoản 9"),
+    ("0.4 mg/lit", "nồng độ cồn vượt quá 0,4 miligam/1 lít khí thở", "Điều 7 Khoản 9"),
+    ("04 mg lit", "nồng độ cồn vượt quá 0,4 miligam/1 lít khí thở", "Điều 7 Khoản 9"),
+)
+
+_RETRIEVAL_EXPANSIONS["labor"] = _RETRIEVAL_EXPANSIONS["labor"] + (
+    ("nghi viec", "chấm dứt hợp đồng lao động", "đơn phương chấm dứt hợp đồng", "thời hạn báo trước"),
+    ("bao truoc", "thời hạn báo trước", "Điều 35 Bộ luật Lao động"),
+    ("don phuong cham dut", "đơn phương chấm dứt hợp đồng", "thời hạn báo trước"),
+    ("mang thai", "lao động nữ mang thai", "sa thải", "đơn phương chấm dứt hợp đồng"),
+    ("nhieu hop dong", "người lao động giao kết nhiều hợp đồng", "BHXH theo hợp đồng giao kết đầu tiên", "bảo hiểm tai nạn lao động theo từng hợp đồng"),
+)
+
+_RETRIEVAL_EXPANSIONS["accounting"] = _RETRIEVAL_EXPANSIONS["accounting"] + (
+    ("doanh thu", "doanh thu hằng năm", "ngưỡng doanh thu", "hộ kinh doanh, cá nhân kinh doanh"),
+    ("800 trieu", "800.000.000 đồng", "doanh thu hằng năm", "nghĩa vụ thuế giá trị gia tăng", "thuế thu nhập cá nhân"),
+    ("800000000", "800.000.000 đồng", "ngưỡng doanh thu hộ kinh doanh"),
+    ("ban hang online", "kinh doanh thương mại điện tử", "nền tảng thương mại điện tử", "khấu trừ, khai thay và nộp thay thuế"),
+    ("shopee", "sàn thương mại điện tử", "hộ kinh doanh, cá nhân kinh doanh", "khấu trừ và nộp thay thuế"),
+    ("tiktok shop", "sàn thương mại điện tử", "nền tảng thương mại điện tử", "khấu trừ và nộp thay thuế"),
+    ("freelancer", "thu nhập từ tiền lương, tiền công", "thu nhập từ kinh doanh", "khấu trừ thuế thu nhập cá nhân"),
 )
 
 _RETRIEVAL_EXPANSIONS["accounting"] = _RETRIEVAL_EXPANSIONS["accounting"] + (

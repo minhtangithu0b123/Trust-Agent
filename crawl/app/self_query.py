@@ -152,6 +152,33 @@ def build_query_plan(query: str, domain: str) -> QueryPlan:
         if any(term in routing_query for term in ("bao nhieu ngay", "so ngay", "duoc nghi")):
             metadata_filter["khoan"] = ["Khoản 1", "Khoản 2"]
 
+    # Resignation questions are commonly phrased as simply "nghỉ việc".
+    # Keep the three termination articles together because the answer may
+    # need to distinguish employee notice, mutual termination, and employer
+    # termination instead of silently selecting an unrelated labor clause.
+    if domain == "labor" and not dieu and any(
+        phrase in routing_query
+        for phrase in ("nghi viec", "bao truoc", "don phuong cham dut", "cham dut hop dong")
+    ):
+        metadata_filter["dieu"] = ["Điều 35", "Điều 36", "Điều 37"]
+
+    if domain == "labor" and not dieu and any(
+        phrase in routing_query for phrase in ("chua ky hop dong", "chua co hop dong", "khong ky hop dong")
+    ):
+        metadata_filter["dieu"] = ["Điều 13", "Điều 14", "Điều 34", "Điều 36", "Điều 37", "Điều 41", "Điều 46"]
+
+    if domain == "labor" and not dieu and any(
+        phrase in routing_query for phrase in ("lam them", "ngoai gio", "them gio")
+    ):
+        metadata_filter["dieu"] = ["Điều 98", "Điều 106", "Điều 107"]
+
+    # Multiple-employer questions need the provisions on the first contract,
+    # health insurance, and occupational accident insurance together.
+    if domain == "labor" and not dieu and any(
+        phrase in routing_query for phrase in ("nhieu hop dong", "hai cong ty", "2 cong ty", "hai hop dong")
+    ):
+        metadata_filter["dieu"] = ["Điều 21", "Điều 43", "Điều 168"]
+
     return QueryPlan(
         semantic_query=semantic_query,
         metadata_filter=metadata_filter,
