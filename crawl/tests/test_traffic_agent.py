@@ -274,6 +274,27 @@ def test_red_light_answer_rejects_alcohol_points_branch(monkeypatch):
     assert "Chưa đủ căn cứ" in result["answer"]
 
 
+def test_motorbike_high_alcohol_answer_rejects_car_fine(monkeypatch):
+    """The 18--20 million bracket must not be shown for a motorcycle query."""
+    monkeypatch.setattr(
+        traffic_agent,
+        "run_domain_agent",
+        lambda *args, **kwargs: {
+            "query": "Xe máy có nồng độ cồn vượt quá 0,4 mg/lít khí thở bị phạt thế nào?",
+            "answer": "Phạt từ 18.000.000 đến 20.000.000 đồng theo Điều 8 Khoản 9.",
+            "status": "verified",
+            "citations": [{"document_id": "traffic-car-alcohol"}],
+        },
+    )
+
+    result = traffic_agent.run_traffic_agent(
+        "Xe máy có nồng độ cồn vượt quá 0,4 mg/lít khí thở bị phạt thế nào?"
+    )
+
+    assert result["status"] == "insufficient_evidence"
+    assert result["citations"] == []
+
+
 def test_helmet_answer_cannot_invent_article_12(monkeypatch):
     monkeypatch.setattr(
         traffic_agent,

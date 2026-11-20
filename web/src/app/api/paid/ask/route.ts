@@ -67,6 +67,17 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("[api/paid/ask] Upstream error:", error);
+    const isTimeout =
+      error instanceof Error &&
+      (error.name === "TimeoutError" || error.name === "AbortError");
+
+    if (isTimeout) {
+      return NextResponse.json(
+        { detail: "Yêu cầu tra cứu quá thời gian phản hồi từ Trust Agent API (timeout 180s). Vui lòng thử lại sau." },
+        { status: 504 },
+      );
+    }
+
     return NextResponse.json(
       { detail: "Chưa kết nối được với paid Trust Agent API. Hãy kiểm tra backend và thử lại." },
       { status: 502 },

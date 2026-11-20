@@ -20,6 +20,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ detail: "Hãy nhập câu hỏi có ít nhất 2 ký tự." }, { status: 400 });
   }
 
+  if (payload.query.trim().length > 2000) {
+    return NextResponse.json(
+      { detail: "Câu hỏi vượt quá độ dài cho phép (tối đa 2000 ký tự)." },
+      { status: 400 },
+    );
+  }
+
   const apiUrl = (process.env.TRUST_AGENT_API_URL || "http://127.0.0.1:8000")
     .trim()
     .replace(/\/+$/, "");

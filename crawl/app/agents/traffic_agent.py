@@ -129,7 +129,13 @@ def _reject_inconsistent_red_light_answer(query: str, result: dict[str, Any]) ->
 
 
 def _reject_mixed_alcohol_thresholds(query: str, result: dict[str, Any]) -> dict[str, Any]:
-    """Do not present a second alcohol bracket that the question did not ask for."""
+    """Reject alcohol answers that mix a bracket or vehicle class.
+
+    Article 6 covers cars while Article 7 covers motorcycles. Citation
+    verification can prove a fine exists in the retrieved decree, but cannot
+    prove that it belongs to the vehicle in the user's question. Keep this
+    check at the traffic-domain boundary so every router caller gets it.
+    """
     if result.get("status") != "verified":
         return result
     routing_query = normalize_for_routing(query)
@@ -138,10 +144,12 @@ def _reject_mixed_alcohol_thresholds(query: str, result: dict[str, Any]) -> dict
         return result
     asks_high = any(token in routing_query for token in ("0,4 mg/lit", "0.4 mg/lit", "04 mg lit", "04 miligam"))
     asks_mid = any(token in routing_query for token in ("0,25", "0.25", "025", "025 04"))
+    asks_motorbike = any(token in routing_query for token in ("xe may", "xe mo to", "xe gan may"))
     has_high = bool(re.search(r"18[.]?000[.]?000", routing_answer))
     has_mid = bool(re.search(r"6[.]?000[.]?000", routing_answer))
-    if (asks_high and has_mid) or (asks_mid and has_high):
-        logger.warning("Traffic alcohol answer mixed incompatible thresholds: query=%s", query)
+    wrong_vehicle_fine = asks_motorbike and asks_high and has_high
+    if (asks_high and has_mid) or (asks_mid and has_high) or wrong_vehicle_fine:
+        logger.warning("Traffic alcohol answer mixed incompatible threshold or vehicle fine: query=%s", query)
         return {
             **result,
             "answer": INSUFFICIENT_EVIDENCE,

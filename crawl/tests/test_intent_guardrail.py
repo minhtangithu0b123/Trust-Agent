@@ -153,3 +153,41 @@ def test_paid_ask_uses_the_same_router_as_the_free_ask(monkeypatch, domain, quer
     assert response["conversation_id"] == "paid-conversation"
     assert router_calls == [(query, 5, "paid-conversation")]
     assert [args[1] for args, _ in stored_messages] == ["user", "assistant"]
+
+
+def test_paid_and_free_nonstream_asks_have_the_same_router_result(monkeypatch):
+    """Payment metadata is additive; routing, answer, status and citations match."""
+    query = "Người lao động được nghỉ phép bao nhiêu ngày?"
+    calls = []
+
+    def fake_run_router(actual_query, k, thread_id=None):
+        calls.append((actual_query, k, thread_id))
+        return {
+            "query": actual_query,
+            "answer": "Câu trả lời có căn cứ.",
+            "status": "verified",
+            "citations": [{"document_id": "labor-113"}],
+            "classifications": [{"domain": "labor", "query": actual_query}],
+        }
+
+    monkeypatch.setattr(main, "run_router", fake_run_router)
+    monkeypatch.setattr(main, "ensure_conversation", lambda conversation_id, default_title: {"id": conversation_id or "generated"})
+    monkeypatch.setattr(main, "add_message", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: SimpleNamespace(x402_enabled=True, x402_network="eip155:43113", index_version="test-index"),
+    )
+    monkeypatch.setattr(
+        main,
+        "create_receipt",
+        lambda answer, citations, index_version: {"receipt_id": "receipt-1", "leaf_hash": "hash-1", "index_version": index_version},
+    )
+
+    free = main.router_ask(SearchRequest(query=query, k=5, conversation_id="free-conversation"))
+    paid = main.paid_router_ask(SearchRequest(query=query, k=5, conversation_id="paid-conversation"))
+
+    for field in ("query", "answer", "status", "citations", "classifications"):
+        assert paid[field] == free[field]
+    assert calls == [(query, 5, "free-conversation"), (query, 5, "paid-conversation")]
+    assert paid["payment"] == {"scheme": "x402", "network": "eip155:43113"}
