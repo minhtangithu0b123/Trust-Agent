@@ -785,7 +785,15 @@ export default function Home() {
 
         <div className="history-list-label">GẦN ĐÂY</div>
         {conversations.length > 0 && (
-          <button type="button" className="history-clear" onClick={() => void clearHistory()}>
+          <button
+            type="button"
+            className="history-clear"
+            onClick={() => void clearHistory()}
+            aria-label="Xóa toàn bộ lịch sử tra cứu"
+          >
+            <svg aria-hidden="true" viewBox="0 0 16 16" fill="none">
+              <path d="M3.5 5h9M6 5V3.5h4V5m1.5 0-.55 7.15a1 1 0 0 1-1 .85h-4a1 1 0 0 1-1-.85L4.5 5m2 2v4m3-4v4" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
             Xóa toàn bộ lịch sử
           </button>
         )}
