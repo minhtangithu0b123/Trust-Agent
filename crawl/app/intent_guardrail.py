@@ -8,7 +8,7 @@ from .query_normalization import normalize_for_routing
 
 logger = logging.getLogger(__name__)
 
-IntentType = Literal["greeting", "out_of_scope", "in_scope"]
+IntentType = Literal["greeting", "out_of_scope", "needs_clarification", "in_scope"]
 
 GREETING_MESSAGE = (
     "Xin chào bạn! Tôi là Trợ lý Pháp lý Trust-AGENT. Tôi có thể hỗ trợ bạn tra cứu "
@@ -25,6 +25,11 @@ OUT_OF_SCOPE_MESSAGE = (
 ACK_MESSAGE = (
     "Mình sẵn sàng hỗ trợ bạn tra cứu pháp luật về giao thông, lao động "
     "hoặc thuế/kế toán."
+)
+
+UNCLEAR_MESSAGE = (
+    "Mình chưa nhận diện được câu hỏi. Bạn hãy nhập câu hỏi cụ thể liên quan đến "
+    "giao thông, lao động hoặc thuế/kế toán nhé."
 )
 
 # Các câu xác nhận/ngắn không mang nội dung pháp lý. Chỉ khớp toàn bộ câu để
@@ -65,6 +70,9 @@ LEGAL_KEYWORDS = [
     "phạt", "giao thông", "đường bộ", "xe máy", "ô tô", "nồng độ cồn", "bằng lái", "tốc độ", "đèn đỏ",
     "lao động", "lương", "nghỉ phép", "sa thải", "hợp đồng", "thử việc", "bảo hiểm", "trợ cấp",
     "thuế", "kế toán", "hóa đơn", "vat", "gtgt", "tncn", "tndn", "khấu trừ", "quyết toán",
+    "pháp luật", "quy định", "quyền lợi", "bồi thường", "trách nhiệm", "công ty", "doanh nghiệp",
+    "hộ kinh doanh", "thu nhập", "kê khai", "nộp thuế", "người điều khiển", "xe", "làm thêm",
+    "nghỉ việc", "chấm dứt", "kỷ luật", "tạm đình chỉ", "thôi việc",
 ]
 
 OUT_OF_SCOPE_PHRASES = [
@@ -127,7 +135,14 @@ class SemanticIntentGuardrail:
                 confidence=1.0,
             )
 
-        # Mặc định cho phép đi tiếp vào luồng Router
+        # Chặn sớm câu vô nghĩa/câu không có tín hiệu pháp lý, trước khi gọi LLM.
+        if not has_legal_keyword:
+            return IntentCheckResult(
+                intent="needs_clarification",
+                response=UNCLEAR_MESSAGE,
+                confidence=1.0,
+            )
+
         return IntentCheckResult(intent="in_scope", response=None, confidence=1.0)
 
 

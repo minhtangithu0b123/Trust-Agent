@@ -54,6 +54,13 @@ def test_intent_guardrail_in_scope():
         assert res.response is None
 
 
+def test_intent_guardrail_stops_unrecognized_input():
+    for query in ("dskfjgsfkdg", "qwe zxc 123", "asdfghjkl"):
+        res = get_intent_guardrail().check_intent(query)
+        assert res.intent == "needs_clarification"
+        assert res.response is not None
+
+
 def test_router_stops_greetings_zero_api():
     result = run_router("chào bạn")
     assert result["status"] == "greeting"
@@ -77,3 +84,11 @@ def test_router_stops_short_social_messages_zero_api():
         assert result["citations"] == []
         assert result["classifications"] == []
         assert "sẵn sàng" in result["answer"]
+
+
+def test_router_stops_unrecognized_input_zero_api():
+    result = run_router("dskfjgsfkdg")
+    assert result["status"] == "needs_clarification"
+    assert result["guardrail_status"] == "needs_clarification"
+    assert result["citations"] == []
+    assert result["classifications"] == []
