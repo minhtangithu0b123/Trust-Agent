@@ -1,21 +1,27 @@
 {
   "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
   "name": "Trust Agent — Vietnamese Traffic Law",
-  "description": "Vietnamese traffic-law RAG API. Returns answers with citations and evidence text hashes. Verify production endpoint ownership before publishing.",
-  "image": "https://example.com/trust-agent.png",
+  "description": "Vietnamese traffic-law RAG agent. Returns answers with legal citations and provenance metadata. Paid traffic-law questions are available via x402 on Avalanche Fuji for testnet demonstrations.",
   "services": [
     {
       "name": "web",
-      "endpoint": "https://YOUR_DOMAIN/"
+      "endpoint": "https://trust-agent-eight.vercel.app/"
     },
     {
       "name": "x402",
-      "endpoint": "https://YOUR_DOMAIN/paid/traffic/ask",
+      "endpoint": "https://batman-ira-jim-door.trycloudflare.com/paid/traffic/ask",
       "version": "2"
     }
   ],
-  "x402Support": false,
-  "active": false,
-  "registrations": [],
-  "supportedTrust": ["reputation"]
+  "x402Support": true,
+  "active": true,
+  "registrations": [
+    {
+      "agentId": 10773,
+      "agentRegistry": "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e"
+    }
+  ],
+  "supportedTrust": [
+    "reputation"
+  ]
 }

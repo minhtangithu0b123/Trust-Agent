@@ -503,12 +503,16 @@ Các biến cấu hình:
 ```env
 X402_ENABLED=false
 X402_PRICE_USD=0.01
-X402_NETWORK=eip155:84532
+X402_NETWORK=eip155:43113
+X402_ASSET_ADDRESS=0x5425890298aed601595a70AB815c96711a31Bc65
+X402_ASSET_DECIMALS=6
+X402_ASSET_NAME=USD Coin
+X402_ASSET_VERSION=2
 X402_PAY_TO=0x...
-X402_FACILITATOR_URL=https://x402.org/facilitator
+X402_FACILITATOR_URL=https://facilitator.payai.network
 ```
 
-Khi bật `X402_ENABLED=true`, backend yêu cầu `X402_PAY_TO` và `X402_FACILITATOR_URL`, đồng thời cài payment extra:
+Demo Avalanche Fuji dùng Circle test USDC với địa chỉ token tường minh; `$0.01` tương ứng `10000` đơn vị nhỏ nhất (6 decimals). Khi bật `X402_ENABLED=true`, backend yêu cầu `X402_PAY_TO` và `X402_FACILITATOR_URL`, đồng thời cài payment extra:
 
 ```powershell
 cd D:\Trust-AGENT\crawl
