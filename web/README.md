@@ -25,9 +25,9 @@ For a hosted backend with `REQUIRE_API_KEY=true`, set the same secret value as `
 
 ## Paid x402 questions
 
-The chat keeps the regular free `/router/ask` path. The separate **X402 · 0.01 USDC** action is only for traffic-law questions and proxies to `/paid/traffic/ask` through `/api/paid/ask`. The user connects an injected EVM wallet (MetaMask, Rabby, Coinbase Wallet), switches to Avalanche Fuji, reviews the recipient and confirms before the wallet signs. The browser never receives or stores a private key. The client refuses payment challenges unless they specify exact x402, Avalanche Fuji, Fuji USDC, and exactly 0.01 USDC.
+The chat keeps the regular free `/router/ask` path. The separate **X402 · 0.01 USDC** action uses the same multi-domain router for traffic, labor, and tax questions, then proxies to `/paid/traffic/ask` through `/api/paid/ask`. The stable backend route name preserves compatibility with existing x402 clients. The user connects an injected EVM wallet (MetaMask, Rabby, Coinbase Wallet), switches to Avalanche Fuji, reviews the recipient and confirms before the wallet signs. The browser never receives or stores a private key. The client refuses payment challenges unless they specify exact x402, Avalanche Fuji, Fuji USDC, and exactly 0.01 USDC.
 
-Set `NEXT_PUBLIC_X402_PAY_TO` in the Next.js deployment to the expected receiving wallet when available; this adds a recipient allowlist check. If omitted, the UI still shows the challenge recipient in a confirmation prompt. The backend deployment must separately have x402 enabled and a working `X402_FACILITATOR_URL`. Paid questions currently appear in the active UI only and are not persisted to server conversation history.
+Set `NEXT_PUBLIC_X402_PAY_TO` in the Next.js deployment to the expected receiving wallet when available; this adds a recipient allowlist check. If omitted, the UI still shows the challenge recipient in a confirmation prompt. The backend deployment must separately have x402 enabled and a working `X402_FACILITATOR_URL`. Paid questions are persisted in the same server-side conversation history as free questions.
 
 ## API contract
 

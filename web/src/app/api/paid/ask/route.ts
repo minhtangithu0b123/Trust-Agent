@@ -38,12 +38,20 @@ export async function POST(request: Request) {
   const legacyPayment = request.headers.get("X-PAYMENT");
   if (paymentSignature) headers.set("PAYMENT-SIGNATURE", paymentSignature);
   if (legacyPayment) headers.set("X-PAYMENT", legacyPayment);
+  const conversationId =
+    "conversation_id" in payload && typeof payload.conversation_id === "string"
+      ? payload.conversation_id.trim()
+      : "";
 
   try {
     const upstream = await fetch(`${apiUrl}/paid/traffic/ask`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ query: payload.query.trim(), k: 5 }),
+      body: JSON.stringify({
+        query: payload.query.trim(),
+        k: 5,
+        conversation_id: conversationId || undefined,
+      }),
       cache: "no-store",
       signal: AbortSignal.timeout(180_000),
     });

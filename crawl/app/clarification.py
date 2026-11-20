@@ -50,10 +50,15 @@ def clarification_for_query(query: str, domain: str) -> str | None:
         tax_subject = any(term in routing for term in (
             "ho kinh doanh", "ca nhan kinh doanh", "doanh nghiep", "cong ty", "to chuc",
         ))
+        personal_transfer = any(term in routing for term in (
+            "cha me", "bo me", "con", "vo chong", "anh chi em",
+            "tang cho", "qua tang", "thua ke", "chuyen nhuong",
+            "ban nha", "bat dong san", "ban xe", "ban o to",
+        ))
         tax_question = any(term in routing for term in (
             "phai nop thue", "cac loai thue", "nhung loai thue", "nghia vu thue", "khai thue",
         ))
-        if tax_question and not tax_subject:
+        if tax_question and not tax_subject and not personal_transfer:
             return "Bạn muốn hỏi nghĩa vụ thuế của hộ kinh doanh, cá nhân kinh doanh hay doanh nghiệp?"
 
     return None

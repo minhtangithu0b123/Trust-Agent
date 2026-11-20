@@ -1,7 +1,9 @@
 import pytest
 from fastapi.testclient import TestClient
+from types import SimpleNamespace
 from app.intent_guardrail import get_intent_guardrail
-from app.main import app
+import app.main as main
+from app.main import SearchRequest, app
 from app.router import run_router
 
 
@@ -56,6 +58,11 @@ def test_intent_guardrail_in_scope():
         assert res.response is None
 
 
+def test_intent_guardrail_accepts_unaccented_legal_question():
+    result = get_intent_guardrail().check_intent("muc phat nong do con xe may")
+    assert result.intent == "in_scope"
+
+
 def test_intent_guardrail_stops_unrecognized_input():
     for query in ("dskfjgsfkdg", "qwe zxc 123", "asdfghjkl"):
         res = get_intent_guardrail().check_intent(query)
@@ -104,3 +111,45 @@ def test_paid_validation_stops_unrecognized_input_zero_api():
     assert response.status_code == 200
     assert response.json()["allowed"] is False
     assert response.json()["status"] == "needs_clarification"
+
+
+@pytest.mark.parametrize("domain, query", [
+    ("labor", "Người lao động thử việc được trả lương thế nào?"),
+    ("accounting", "Tiền lãi gửi tiết kiệm có phải nộp thuế thu nhập cá nhân không?"),
+])
+def test_paid_ask_uses_the_same_router_as_the_free_ask(monkeypatch, domain, query):
+    expected = {
+        "query": query,
+        "answer": "Câu trả lời có căn cứ.",
+        "status": "verified",
+        "citations": [{"document_id": f"{domain}-1"}],
+        "classifications": [{"domain": domain, "query": query}],
+    }
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: SimpleNamespace(x402_enabled=True, x402_network="eip155:43113", index_version="test-index"),
+    )
+    router_calls = []
+    stored_messages = []
+    monkeypatch.setattr(
+        main,
+        "run_router",
+        lambda actual_query, k, thread_id=None: router_calls.append((actual_query, k, thread_id)) or expected,
+    )
+    monkeypatch.setattr(main, "ensure_conversation", lambda conversation_id, default_title: {"id": conversation_id or "paid-conversation"})
+    monkeypatch.setattr(main, "add_message", lambda *args, **kwargs: stored_messages.append((args, kwargs)))
+    monkeypatch.setattr(
+        main,
+        "create_receipt",
+        lambda answer, citations, index_version: {"receipt_id": "receipt-1", "leaf_hash": "hash-1", "index_version": index_version},
+    )
+
+    response = main.paid_router_ask(SearchRequest(query=query, k=5, conversation_id="paid-conversation"))
+
+    assert response["answer"] == expected["answer"]
+    assert response["classifications"] == expected["classifications"]
+    assert response["payment"] == {"scheme": "x402", "network": "eip155:43113"}
+    assert response["conversation_id"] == "paid-conversation"
+    assert router_calls == [(query, 5, "paid-conversation")]
+    assert [args[1] for args, _ in stored_messages] == ["user", "assistant"]

@@ -1,7 +1,7 @@
 {
   "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
-  "name": "Trust Agent — Vietnamese Traffic Law",
-  "description": "Vietnamese traffic-law RAG agent. Returns answers with legal citations and provenance metadata. Paid traffic-law questions are available via x402 on Avalanche Fuji for testnet demonstrations.",
+  "name": "Trust Agent — Vietnamese Legal RAG",
+  "description": "Vietnamese legal RAG agent for traffic, labor, and tax. Returns answers with legal citations and provenance metadata. Paid legal questions are available via x402 on Avalanche Fuji for testnet demonstrations.",
   "services": [
     {
       "name": "web",

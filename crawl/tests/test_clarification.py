@@ -22,5 +22,12 @@ def test_accounting_asks_for_taxpayer_type():
     assert clarification_for_query("Phải nộp những loại thuế nào?", "accounting")
 
 
+def test_personal_home_gift_is_not_mistaken_for_business_tax_question():
+    assert clarification_for_query(
+        "Cha mẹ tặng nhà cho con có phải nộp thuế thu nhập cá nhân không?",
+        "accounting",
+    ) is None
+
+
 def test_clear_labor_question_is_not_blocked():
     assert clarification_for_query("Người lao động ký hợp đồng thử việc tối đa bao nhiêu ngày?", "labor") is None

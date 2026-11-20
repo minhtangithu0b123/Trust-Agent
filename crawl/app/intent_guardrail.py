@@ -81,6 +81,17 @@ OUT_OF_SCOPE_PHRASES = [
     "lập trình code", "triệu chứng bệnh", "hướng dẫn cài win",
 ]
 
+# Route and intent checks must accept Vietnamese typed without diacritics too.
+# Keep the source lists readable above, then normalize both sides once here.
+_NORMALIZED_OUT_OF_SCOPE_KEYWORDS = tuple(normalize_for_routing(item) for item in OUT_OF_SCOPE_KEYWORDS)
+_NORMALIZED_OUT_OF_SCOPE_PHRASES = tuple(normalize_for_routing(item) for item in OUT_OF_SCOPE_PHRASES)
+_NORMALIZED_LEGAL_KEYWORDS = tuple(normalize_for_routing(item) for item in LEGAL_KEYWORDS)
+
+
+def _contains_term(text: str, term: str) -> bool:
+    """Match a normalized word or phrase without crossing word boundaries."""
+    return re.search(rf"(?<!\w){re.escape(term)}(?!\w)", text) is not None
+
 
 @dataclass
 class IntentCheckResult:
@@ -123,9 +134,11 @@ class SemanticIntentGuardrail:
                 )
 
         # 2. Fast Keyword Out-of-Scope check
-        lower_q = normalized.lower()
-        has_out_keyword = any(kw in lower_q for kw in OUT_OF_SCOPE_KEYWORDS) or any(p in lower_q for p in OUT_OF_SCOPE_PHRASES)
-        has_legal_keyword = any(kw in lower_q for kw in LEGAL_KEYWORDS)
+        has_out_keyword = (
+            any(_contains_term(routing_query, kw) for kw in _NORMALIZED_OUT_OF_SCOPE_KEYWORDS)
+            or any(_contains_term(routing_query, phrase) for phrase in _NORMALIZED_OUT_OF_SCOPE_PHRASES)
+        )
+        has_legal_keyword = any(_contains_term(routing_query, kw) for kw in _NORMALIZED_LEGAL_KEYWORDS)
 
         # Nếu có từ khóa ngoài lề và không có từ khóa pháp lý
         if has_out_keyword and not has_legal_keyword:

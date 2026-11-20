@@ -26,12 +26,20 @@ export async function POST(request: Request) {
   const headers = new Headers({ "content-type": "application/json" });
   const apiKey = process.env.API_ACCESS_TOKEN?.trim();
   if (apiKey) headers.set("X-API-Key", apiKey);
+  const conversationId =
+    "conversation_id" in payload && typeof payload.conversation_id === "string"
+      ? payload.conversation_id.trim()
+      : "";
 
   try {
     const upstream = await fetch(`${apiUrl}/paid/traffic/validate`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ query: payload.query.trim(), k: 5 }),
+      body: JSON.stringify({
+        query: payload.query.trim(),
+        k: 5,
+        conversation_id: conversationId || undefined,
+      }),
       cache: "no-store",
       signal: AbortSignal.timeout(30_000),
     });

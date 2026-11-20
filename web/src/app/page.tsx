@@ -36,6 +36,7 @@ type Answer = {
   query?: string;
   thread_id?: string;
   conversation_id?: string;
+  session_id?: string;
   answer: string;
   status: AnswerStatus;
   guardrail_status?: string;
@@ -389,7 +390,7 @@ export default function Home() {
 
     try {
       let conversationId = threadId;
-      if (!paid && !conversationId) {
+      if (!conversationId) {
         const created = await createConversation(query, controller.signal);
         conversationId = created.id;
       }
@@ -400,7 +401,7 @@ export default function Home() {
         const validationResponse = await fetch("/api/paid/validate", {
           method: "POST",
           headers: { "content-type": "application/json", accept: "application/json" },
-          body: JSON.stringify({ query }),
+          body: JSON.stringify({ query, conversation_id: conversationId }),
           signal: controller.signal,
         });
         const validation = await validationResponse.json().catch(() => null);
@@ -423,13 +424,23 @@ export default function Home() {
               answer: rejectedAnswer,
             },
           ]);
+          const resolvedConversationId =
+            validation.conversation_id || validation.thread_id || validation.session_id || conversationId;
+          if (resolvedConversationId) {
+            setThreadId(resolvedConversationId);
+            window.localStorage.setItem(
+              "trust-agent-active-conversation",
+              resolvedConversationId,
+            );
+          }
+          void refreshConversations();
           return;
         }
         paidClient = await createPaidX402Client(walletAddress as `0x${string}`);
         response = await paidClient.fetchWithPayment("/api/paid/ask", {
           method: "POST",
           headers: { "content-type": "application/json", accept: "application/json" },
-          body: JSON.stringify({ query }),
+          body: JSON.stringify({ query, conversation_id: conversationId }),
           signal: controller.signal,
         });
       } else {
@@ -579,16 +590,15 @@ export default function Home() {
         } catch {
           // The API response can still be useful if a facilitator omits its receipt header.
         }
-      } else {
-        const resolvedConversationId =
-          answer.conversation_id || answer.thread_id || conversationId;
-        if (resolvedConversationId) {
-          setThreadId(resolvedConversationId);
-          window.localStorage.setItem(
-            "trust-agent-active-conversation",
-            resolvedConversationId,
-          );
-        }
+      }
+      const resolvedConversationId =
+        answer.conversation_id || answer.thread_id || answer.session_id || conversationId;
+      if (resolvedConversationId) {
+        setThreadId(resolvedConversationId);
+        window.localStorage.setItem(
+          "trust-agent-active-conversation",
+          resolvedConversationId,
+        );
       }
 
       setMessages((current) => [
@@ -601,7 +611,7 @@ export default function Home() {
           answer,
         },
       ]);
-      if (!paid) void refreshConversations();
+      void refreshConversations();
     } catch (error: unknown) {
       if (error instanceof Error && error.name === "AbortError") {
         if (!pendingAssistantMessageId) return;
@@ -1168,7 +1178,7 @@ export default function Home() {
                   type="button"
                   onClick={() => void submitQuestion(draft, true)}
                   disabled={draft.trim().length < 2 || loading || loadingHistory || !walletAddress}
-                  title="Gọi paid API giao thông bằng x402; giá 0.01 USDC trên Avalanche Fuji"
+                  title="Gọi paid API pháp luật bằng x402; giá 0.01 USDC trên Avalanche Fuji"
                 >
                   {loading ? "ĐANG XỬ LÝ" : "X402 · 0.01 USDC"}
                 </button>
@@ -1176,11 +1186,11 @@ export default function Home() {
             </div>
           </form>
           <div className="x402-note" role="status">
-            <span>TRẢ PHÍ CHỈ CHO LUẬT GIAO THÔNG</span>
+            <span>TRẢ PHÍ CHO TRA CỨU PHÁP LUẬT</span>
             <span>0.01 USDC · Avalanche Fuji</span>
             {walletAddress && <span>Ví {shortAddress(walletAddress)}</span>}
             {walletNotice && <span className="x402-wallet-notice">{walletNotice}</span>}
-            <span className="x402-history-note">Câu hỏi x402 hiện không được lưu vào lịch sử máy chủ.</span>
+            <span className="x402-history-note">Câu hỏi x402 được lưu vào lịch sử tra cứu của bạn.</span>
           </div>
           <div className="footer-note">
             TRUST AGENT <span>·</span> TRA CỨU CÓ NGUỒN{" "}

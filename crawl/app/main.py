@@ -84,7 +84,7 @@ def configure_x402() -> None:
                     network=settings.x402_network,
                     pay_to=settings.x402_pay_to,
                 )],
-                description="Vietnamese traffic-law answer with citations",
+                description="Vietnamese legal answer with citations across traffic, labor, and tax",
             )
         },
         server=server,
@@ -451,15 +451,9 @@ def domain_ask(domain: str, request: SearchRequest) -> dict[str, Any]:
         logger.exception("Domain ask failed: %s", config.name)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-@app.post("/router/ask")
-def router_ask(request: SearchRequest) -> Any:
-    request = clean_request(request)
+def _run_router_and_store_conversation(request: SearchRequest) -> dict[str, Any]:
+    """Run the router and persist the turn for both free and paid asks."""
     conversation_id = request.conversation_id or request.thread_id or request.session_id
-    if request.stream:
-        return StreamingResponse(
-            stream_router_sse(request.query, request.k, conversation_id),
-            media_type="text/event-stream",
-        )
     try:
         conversation = ensure_conversation(
             conversation_id=conversation_id,
@@ -495,6 +489,18 @@ def router_ask(request: SearchRequest) -> Any:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+@app.post("/router/ask")
+def router_ask(request: SearchRequest) -> Any:
+    request = clean_request(request)
+    conversation_id = request.conversation_id or request.thread_id or request.session_id
+    if request.stream:
+        return StreamingResponse(
+            stream_router_sse(request.query, request.k, conversation_id),
+            media_type="text/event-stream",
+        )
+    return _run_router_and_store_conversation(request)
+
+
 @app.post("/router/ask/stream")
 def router_ask_stream(request: SearchRequest) -> StreamingResponse:
     request = clean_request(request)
@@ -514,20 +520,16 @@ def traffic_agent_ask(request: SearchRequest) -> dict[str, Any]:
 
 
 @app.post("/paid/traffic/ask")
-def paid_traffic_agent_ask(request: SearchRequest) -> dict[str, Any]:
+def paid_router_ask(request: SearchRequest) -> dict[str, Any]:
+    """Run the same multi-domain legal router as the free ask endpoint.
+
+    The route name remains stable for existing x402 clients and ERC-8004
+    metadata. Payment is the only behavior that differs from /router/ask.
+    """
     if not get_settings().x402_enabled:
         raise HTTPException(status_code=503, detail="Paid API is not enabled")
     cleaned = clean_request(request)
-    intent_result = get_intent_guardrail().check_intent(cleaned.query)
-    if intent_result.intent != "in_scope":
-        return {
-            "query": cleaned.query,
-            "answer": intent_result.response or "Hãy nhập câu hỏi pháp luật cụ thể.",
-            "status": intent_result.intent,
-            "citations": [],
-            "payment": {"scheme": "x402", "network": get_settings().x402_network},
-        }
-    result = run_traffic_agent(cleaned.query, cleaned.k)
+    result = _run_router_and_store_conversation(cleaned)
     receipt = create_receipt(result["answer"], result.get("citations", []), get_settings().index_version)
     result["provenance"] = {
         "receipt_id": receipt["receipt_id"],
@@ -542,12 +544,24 @@ def paid_traffic_agent_ask(request: SearchRequest) -> dict[str, Any]:
 
 
 @app.post("/paid/traffic/validate")
-def validate_paid_traffic(request: SearchRequest) -> dict[str, Any]:
+def validate_paid_router(request: SearchRequest) -> dict[str, Any]:
     """Validate a paid query before the browser requests an x402 payment challenge."""
     cleaned = clean_request(request)
     intent_result = get_intent_guardrail().check_intent(cleaned.query)
+    if intent_result.intent != "in_scope":
+        response = _run_router_and_store_conversation(cleaned)
+        return {
+            "allowed": False,
+            "query": response["query"],
+            "status": response["status"],
+            "answer": response["answer"],
+            "citations": response.get("citations", []),
+            "conversation_id": response.get("conversation_id"),
+            "thread_id": response.get("thread_id"),
+            "session_id": response.get("session_id"),
+        }
     return {
-        "allowed": intent_result.intent == "in_scope",
+        "allowed": True,
         "query": cleaned.query,
         "status": intent_result.intent,
         "answer": intent_result.response,
