@@ -1,5 +1,7 @@
 import pytest
+from fastapi.testclient import TestClient
 from app.intent_guardrail import get_intent_guardrail
+from app.main import app
 from app.router import run_router
 
 
@@ -92,3 +94,13 @@ def test_router_stops_unrecognized_input_zero_api():
     assert result["guardrail_status"] == "needs_clarification"
     assert result["citations"] == []
     assert result["classifications"] == []
+
+
+def test_paid_validation_stops_unrecognized_input_zero_api():
+    response = TestClient(app).post(
+        "/paid/traffic/validate",
+        json={"query": "dskfjgsfkdg", "k": 5},
+    )
+    assert response.status_code == 200
+    assert response.json()["allowed"] is False
+    assert response.json()["status"] == "needs_clarification"

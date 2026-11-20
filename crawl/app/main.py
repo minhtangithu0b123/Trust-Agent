@@ -17,6 +17,7 @@ from .agents.labor_agent import run_labor_agent
 from .agents.accounting_agent import run_accounting_agent
 from .config import get_settings
 from .domains import CorpusNotFoundError, UnknownDomainError
+from .intent_guardrail import get_intent_guardrail
 from .retrieval import get_hybrid_retriever
 from .router import run_router
 from .query_normalization import clean_query
@@ -517,6 +518,15 @@ def paid_traffic_agent_ask(request: SearchRequest) -> dict[str, Any]:
     if not get_settings().x402_enabled:
         raise HTTPException(status_code=503, detail="Paid API is not enabled")
     cleaned = clean_request(request)
+    intent_result = get_intent_guardrail().check_intent(cleaned.query)
+    if intent_result.intent != "in_scope":
+        return {
+            "query": cleaned.query,
+            "answer": intent_result.response or "Hãy nhập câu hỏi pháp luật cụ thể.",
+            "status": intent_result.intent,
+            "citations": [],
+            "payment": {"scheme": "x402", "network": get_settings().x402_network},
+        }
     result = run_traffic_agent(cleaned.query, cleaned.k)
     receipt = create_receipt(result["answer"], result.get("citations", []), get_settings().index_version)
     result["provenance"] = {
@@ -529,6 +539,19 @@ def paid_traffic_agent_ask(request: SearchRequest) -> dict[str, Any]:
         "network": get_settings().x402_network,
     }
     return result
+
+
+@app.post("/paid/traffic/validate")
+def validate_paid_traffic(request: SearchRequest) -> dict[str, Any]:
+    """Validate a paid query before the browser requests an x402 payment challenge."""
+    cleaned = clean_request(request)
+    intent_result = get_intent_guardrail().check_intent(cleaned.query)
+    return {
+        "allowed": intent_result.intent == "in_scope",
+        "query": cleaned.query,
+        "status": intent_result.intent,
+        "answer": intent_result.response,
+    }
 
 
 @app.get("/provenance/{receipt_id}")

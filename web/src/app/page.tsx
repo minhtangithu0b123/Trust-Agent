@@ -397,6 +397,34 @@ export default function Home() {
       let response: Response;
       let paidClient: Awaited<ReturnType<typeof createPaidX402Client>> | null = null;
       if (paid) {
+        const validationResponse = await fetch("/api/paid/validate", {
+          method: "POST",
+          headers: { "content-type": "application/json", accept: "application/json" },
+          body: JSON.stringify({ query }),
+          signal: controller.signal,
+        });
+        const validation = await validationResponse.json().catch(() => null);
+        if (!validationResponse.ok) {
+          throw new Error(responseError(validation, "Không thể kiểm tra câu hỏi trả phí."));
+        }
+        if (validation?.allowed === false) {
+          const rejectedAnswer: Answer = {
+            answer: validation.answer || "Hãy nhập câu hỏi pháp luật cụ thể.",
+            status: validation.status || "needs_clarification",
+            citations: [],
+          };
+          setMessages((current) => [
+            ...current,
+            {
+              id: "client-assistant-" + Date.now(),
+              role: "assistant",
+              text: rejectedAnswer.answer,
+              createdAt: new Date().toISOString(),
+              answer: rejectedAnswer,
+            },
+          ]);
+          return;
+        }
         paidClient = await createPaidX402Client(walletAddress as `0x${string}`);
         response = await paidClient.fetchWithPayment("/api/paid/ask", {
           method: "POST",
