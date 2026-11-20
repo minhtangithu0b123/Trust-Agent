@@ -226,11 +226,13 @@ def agent_registration(request: Request) -> dict[str, Any]:
     metadata_path = Path(__file__).with_name("agent-registration.example.json")
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     base_url = str(request.base_url).rstrip("/")
+    web_url = get_settings().trust_agent_web_url.rstrip("/")
     metadata["services"] = [
-        {"name": "web", "endpoint": f"{base_url}/docs"},
+        {"name": "web", "endpoint": web_url},
         {"name": "x402", "endpoint": f"{base_url}/paid/traffic/ask", "version": "2"},
     ]
     metadata["x402Support"] = get_settings().x402_enabled
+    metadata.pop("supportedTrust", None)
     return metadata
 
 
