@@ -1,0 +1,47 @@
+services:
+  - type: web
+    name: trust-agent-api
+    runtime: docker
+    plan: free
+    rootDir: crawl
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /domains/traffic/health
+    autoDeploy: true
+    envVars:
+      - key: LLM_PROVIDER
+        value: openai
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: X402_ENABLED
+        value: "true"
+      - key: X402_PRICE_USD
+        value: "0.01"
+      - key: X402_NETWORK
+        value: eip155:43113
+      - key: X402_ASSET_ADDRESS
+        value: "0x5425890298aed601595a70AB815c96711a31Bc65"
+      - key: X402_ASSET_DECIMALS
+        value: "6"
+      - key: X402_ASSET_NAME
+        value: "USD Coin"
+      - key: X402_ASSET_VERSION
+        value: "2"
+      - key: X402_PAY_TO
+        sync: false
+      - key: X402_FACILITATOR_URL
+        value: https://facilitator.payai.network
+      - key: INDEX_VERSION
+        value: traffic-v1
+      - key: PROVENANCE_DB_PATH
+        value: /tmp/provenance.sqlite3
+      - key: REWARD_ADMIN_TOKEN
+        generateValue: true
+      - key: INGEST_ADMIN_TOKEN
+        generateValue: true
+      - key: API_ACCESS_TOKEN
+        generateValue: true
+      - key: REQUIRE_API_KEY
+        value: "true"

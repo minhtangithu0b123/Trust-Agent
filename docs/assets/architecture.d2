@@ -1,0 +1,92 @@
+direction: down
+
+classes: {
+  layer: {
+    style.fill: "#F8FAFC"
+    style.stroke: "#CBD5E1"
+    style.border-radius: 16
+    style.font-color: "#0F172A"
+  }
+  node: {
+    style.fill: "#FFFFFF"
+    style.stroke: "#94A3B8"
+    style.border-radius: 10
+    style.font-color: "#0F172A"
+  }
+  accent: {
+    style.fill: "#ECFDF5"
+    style.stroke: "#34D399"
+    style.border-radius: 10
+    style.font-color: "#064E3B"
+  }
+  optional: {
+    style.fill: "#FFFBEB"
+    style.stroke: "#F59E0B"
+    style.border-radius: 10
+    style.stroke-dash: 4
+    style.font-color: "#78350F"
+  }
+  store: {
+    shape: cylinder
+    style.fill: "#F1F5F9"
+    style.stroke: "#64748B"
+    style.font-color: "#0F172A"
+  }
+}
+
+client: Lớp client & API {
+  direction: down
+  class: layer
+  web: "Frontend Next.js" { class: node }
+  proxy: "API proxy Next.js" { class: node }
+  api: "FastAPI" { class: accent }
+  web -> proxy -> api
+}
+
+orchestration: Điều phối agent {
+  direction: down
+  class: layer
+  router: "LangGraph router" { class: accent }
+  agents: "Agent giao thông · lao động · thuế" { class: node }
+  router -> agents
+}
+
+retrieval: Truy xuất + cơ sở tri thức {
+  direction: down
+  class: layer
+  planner: "Chuẩn hóa · mở rộng · phân rã\nlọc metadata / theo phương tiện" { class: node }
+  search: "Chroma vector + BM25\nhợp nhất RRF" { class: accent }
+  context: "Ngữ cảnh parent\ncross-encoder có điều kiện" { class: optional }
+  corpus: "legal_traffic · legal_labor · legal_accounting\ncollection Chroma + metadata tài liệu" { class: store }
+  planner -> search -> context
+  corpus -> search
+}
+
+answer: Sinh câu trả lời + guardrail {
+  direction: down
+  class: layer
+  evidence: "Tập evidence" { class: node }
+  llm: "OpenAI hoặc Gemini\nLLM cấu hình được" { class: accent }
+  review: "Reflection / Self-RAG" { class: node }
+  guard: "Citation + định lượng\nguardrail" { class: accent }
+  evidence -> llm -> review -> guard
+}
+
+state: Trạng thái hội thoại {
+  direction: down
+  class: layer
+  conversations: "Hội thoại + tin nhắn\nSQLite / PostgreSQL" { class: store }
+  checkpoints: "Checkpoint LangGraph\nSQLite" { class: store }
+  provenance: "Receipt provenance\nmetadata chỉ mục/phiên bản" { class: store }
+}
+
+x402: "Route giao thông trả phí x402" { class: optional; shape: hexagon }
+
+client.api -> orchestration.router
+orchestration.agents -> retrieval.planner
+retrieval.context -> answer.evidence
+answer.guard -> client.proxy
+client.api -> state.conversations: stores
+orchestration.router -> state.checkpoints: checkpoints
+answer.guard -> state.provenance: records
+x402 -> client.api: middleware thanh toán tùy chọn

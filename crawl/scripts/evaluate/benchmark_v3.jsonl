@@ -1,0 +1,300 @@
+{"id": "traffic-01-01", "domain": "traffic", "query": "nồng độ cồn khi lái xe máy được quy định như thế nào?", "expected_keywords": ["nồng độ cồn", "xe mô tô"]}
+{"id": "traffic-01-02", "domain": "traffic", "query": "Cho tôi biết quy định pháp luật về nồng độ cồn khi lái xe máy.", "expected_keywords": ["nồng độ cồn", "xe mô tô"]}
+{"id": "traffic-01-03", "domain": "traffic", "query": "Khi nào áp dụng quy định về nồng độ cồn khi lái xe máy?", "expected_keywords": ["nồng độ cồn", "xe mô tô"]}
+{"id": "traffic-01-04", "domain": "traffic", "query": "nồng độ cồn khi lái xe máy có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["nồng độ cồn", "xe mô tô"]}
+{"id": "traffic-01-05", "domain": "traffic", "query": "Căn cứ pháp lý nào nói về nồng độ cồn khi lái xe máy?", "expected_keywords": ["nồng độ cồn", "xe mô tô"]}
+{"id": "traffic-02-01", "domain": "traffic", "query": "nồng độ cồn khi lái xe ô tô được quy định như thế nào?", "expected_keywords": ["nồng độ cồn", "ô tô"]}
+{"id": "traffic-02-02", "domain": "traffic", "query": "Cho tôi biết quy định pháp luật về nồng độ cồn khi lái xe ô tô.", "expected_keywords": ["nồng độ cồn", "ô tô"]}
+{"id": "traffic-02-03", "domain": "traffic", "query": "Khi nào áp dụng quy định về nồng độ cồn khi lái xe ô tô?", "expected_keywords": ["nồng độ cồn", "ô tô"]}
+{"id": "traffic-02-04", "domain": "traffic", "query": "nồng độ cồn khi lái xe ô tô có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["nồng độ cồn", "ô tô"]}
+{"id": "traffic-02-05", "domain": "traffic", "query": "Căn cứ pháp lý nào nói về nồng độ cồn khi lái xe ô tô?", "expected_keywords": ["nồng độ cồn", "ô tô"]}
+{"id": "traffic-03-01", "domain": "traffic", "query": "không đội mũ bảo hiểm được quy định như thế nào?", "expected_keywords": ["mũ bảo hiểm"]}
+{"id": "traffic-03-02", "domain": "traffic", "query": "Cho tôi biết quy định pháp luật về không đội mũ bảo hiểm.", "expected_keywords": ["mũ bảo hiểm"]}
+{"id": "traffic-03-03", "domain": "traffic", "query": "Khi nào áp dụng quy định về không đội mũ bảo hiểm?", "expected_keywords": ["mũ bảo hiểm"]}
+{"id": "traffic-03-04", "domain": "traffic", "query": "không đội mũ bảo hiểm có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["mũ bảo hiểm"]}
+{"id": "traffic-03-05", "domain": "traffic", "query": "Căn cứ pháp lý nào nói về không đội mũ bảo hiểm?", "expected_keywords": ["mũ bảo hiểm"]}
+{"id": "traffic-04-01", "domain": "traffic", "query": "vượt đèn đỏ được quy định như thế nào?", "expected_keywords": ["đèn đỏ"]}
+{"id": "traffic-04-02", "domain": "traffic", "query": "Cho tôi biết quy định pháp luật về vượt đèn đỏ.", "expected_keywords": ["đèn đỏ"]}
+{"id": "traffic-04-03", "domain": "traffic", "query": "Khi nào áp dụng quy định về vượt đèn đỏ?", "expected_keywords": ["đèn đỏ"]}
+{"id": "traffic-04-04", "domain": "traffic", "query": "vượt đèn đỏ có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["đèn đỏ"]}
+{"id": "traffic-04-05", "domain": "traffic", "query": "Căn cứ pháp lý nào nói về vượt đèn đỏ?", "expected_keywords": ["đèn đỏ"]}
+{"id": "traffic-05-01", "domain": "traffic", "query": "đi ngược chiều được quy định như thế nào?", "expected_keywords": ["đi ngược chiều"]}
+{"id": "traffic-05-02", "domain": "traffic", "query": "Cho tôi biết quy định pháp luật về đi ngược chiều.", "expected_keywords": ["đi ngược chiều"]}
+{"id": "traffic-05-03", "domain": "traffic", "query": "Khi nào áp dụng quy định về đi ngược chiều?", "expected_keywords": ["đi ngược chiều"]}
+{"id": "traffic-05-04", "domain": "traffic", "query": "đi ngược chiều có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["đi ngược chiều"]}
+{"id": "traffic-05-05", "domain": "traffic", "query": "Căn cứ pháp lý nào nói về đi ngược chiều?", "expected_keywords": ["đi ngược chiều"]}
+{"id": "traffic-06-01", "domain": "traffic", "query": "chạy quá tốc độ được quy định như thế nào?", "expected_keywords": ["tốc độ"]}
+{"id": "traffic-06-02", "domain": "traffic", "query": "Cho tôi biết quy định pháp luật về chạy quá tốc độ.", "expected_keywords": ["tốc độ"]}
+{"id": "traffic-06-03", "domain": "traffic", "query": "Khi nào áp dụng quy định về chạy quá tốc độ?", "expected_keywords": ["tốc độ"]}
+{"id": "traffic-06-04", "domain": "traffic", "query": "chạy quá tốc độ có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["tốc độ"]}
+{"id": "traffic-06-05", "domain": "traffic", "query": "Căn cứ pháp lý nào nói về chạy quá tốc độ?", "expected_keywords": ["tốc độ"]}
+{"id": "traffic-07-01", "domain": "traffic", "query": "không có giấy phép lái xe được quy định như thế nào?", "expected_keywords": ["giấy phép lái xe"]}
+{"id": "traffic-07-02", "domain": "traffic", "query": "Cho tôi biết quy định pháp luật về không có giấy phép lái xe.", "expected_keywords": ["giấy phép lái xe"]}
+{"id": "traffic-07-03", "domain": "traffic", "query": "Khi nào áp dụng quy định về không có giấy phép lái xe?", "expected_keywords": ["giấy phép lái xe"]}
+{"id": "traffic-07-04", "domain": "traffic", "query": "không có giấy phép lái xe có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["giấy phép lái xe"]}
+{"id": "traffic-07-05", "domain": "traffic", "query": "Căn cứ pháp lý nào nói về không có giấy phép lái xe?", "expected_keywords": ["giấy phép lái xe"]}
+{"id": "traffic-08-01", "domain": "traffic", "query": "sử dụng điện thoại khi lái xe được quy định như thế nào?", "expected_keywords": ["điện thoại"]}
+{"id": "traffic-08-02", "domain": "traffic", "query": "Cho tôi biết quy định pháp luật về sử dụng điện thoại khi lái xe.", "expected_keywords": ["điện thoại"]}
+{"id": "traffic-08-03", "domain": "traffic", "query": "Khi nào áp dụng quy định về sử dụng điện thoại khi lái xe?", "expected_keywords": ["điện thoại"]}
+{"id": "traffic-08-04", "domain": "traffic", "query": "sử dụng điện thoại khi lái xe có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["điện thoại"]}
+{"id": "traffic-08-05", "domain": "traffic", "query": "Căn cứ pháp lý nào nói về sử dụng điện thoại khi lái xe?", "expected_keywords": ["điện thoại"]}
+{"id": "traffic-09-01", "domain": "traffic", "query": "không chấp hành kiểm tra nồng độ cồn được quy định như thế nào?", "expected_keywords": ["nồng độ cồn"]}
+{"id": "traffic-09-02", "domain": "traffic", "query": "Cho tôi biết quy định pháp luật về không chấp hành kiểm tra nồng độ cồn.", "expected_keywords": ["nồng độ cồn"]}
+{"id": "traffic-09-03", "domain": "traffic", "query": "Khi nào áp dụng quy định về không chấp hành kiểm tra nồng độ cồn?", "expected_keywords": ["nồng độ cồn"]}
+{"id": "traffic-09-04", "domain": "traffic", "query": "không chấp hành kiểm tra nồng độ cồn có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["nồng độ cồn"]}
+{"id": "traffic-09-05", "domain": "traffic", "query": "Căn cứ pháp lý nào nói về không chấp hành kiểm tra nồng độ cồn?", "expected_keywords": ["nồng độ cồn"]}
+{"id": "traffic-10-01", "domain": "traffic", "query": "dừng đỗ xe không đúng quy định được quy định như thế nào?", "expected_keywords": ["dừng", "đỗ"]}
+{"id": "traffic-10-02", "domain": "traffic", "query": "Cho tôi biết quy định pháp luật về dừng đỗ xe không đúng quy định.", "expected_keywords": ["dừng", "đỗ"]}
+{"id": "traffic-10-03", "domain": "traffic", "query": "Khi nào áp dụng quy định về dừng đỗ xe không đúng quy định?", "expected_keywords": ["dừng", "đỗ"]}
+{"id": "traffic-10-04", "domain": "traffic", "query": "dừng đỗ xe không đúng quy định có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["dừng", "đỗ"]}
+{"id": "traffic-10-05", "domain": "traffic", "query": "Căn cứ pháp lý nào nói về dừng đỗ xe không đúng quy định?", "expected_keywords": ["dừng", "đỗ"]}
+{"id": "traffic-11-01", "domain": "traffic", "query": "chuyển làn đường được quy định như thế nào?", "expected_keywords": ["chuyển làn"]}
+{"id": "traffic-11-02", "domain": "traffic", "query": "Cho tôi biết quy định pháp luật về chuyển làn đường.", "expected_keywords": ["chuyển làn"]}
+{"id": "traffic-11-03", "domain": "traffic", "query": "Khi nào áp dụng quy định về chuyển làn đường?", "expected_keywords": ["chuyển làn"]}
+{"id": "traffic-11-04", "domain": "traffic", "query": "chuyển làn đường có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["chuyển làn"]}
+{"id": "traffic-11-05", "domain": "traffic", "query": "Căn cứ pháp lý nào nói về chuyển làn đường?", "expected_keywords": ["chuyển làn"]}
+{"id": "traffic-12-01", "domain": "traffic", "query": "chuyển hướng không báo hiệu được quy định như thế nào?", "expected_keywords": ["chuyển hướng"]}
+{"id": "traffic-12-02", "domain": "traffic", "query": "Cho tôi biết quy định pháp luật về chuyển hướng không báo hiệu.", "expected_keywords": ["chuyển hướng"]}
+{"id": "traffic-12-03", "domain": "traffic", "query": "Khi nào áp dụng quy định về chuyển hướng không báo hiệu?", "expected_keywords": ["chuyển hướng"]}
+{"id": "traffic-12-04", "domain": "traffic", "query": "chuyển hướng không báo hiệu có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["chuyển hướng"]}
+{"id": "traffic-12-05", "domain": "traffic", "query": "Căn cứ pháp lý nào nói về chuyển hướng không báo hiệu?", "expected_keywords": ["chuyển hướng"]}
+{"id": "traffic-13-01", "domain": "traffic", "query": "nhường đường cho xe ưu tiên được quy định như thế nào?", "expected_keywords": ["xe ưu tiên"]}
+{"id": "traffic-13-02", "domain": "traffic", "query": "Cho tôi biết quy định pháp luật về nhường đường cho xe ưu tiên.", "expected_keywords": ["xe ưu tiên"]}
+{"id": "traffic-13-03", "domain": "traffic", "query": "Khi nào áp dụng quy định về nhường đường cho xe ưu tiên?", "expected_keywords": ["xe ưu tiên"]}
+{"id": "traffic-13-04", "domain": "traffic", "query": "nhường đường cho xe ưu tiên có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["xe ưu tiên"]}
+{"id": "traffic-13-05", "domain": "traffic", "query": "Căn cứ pháp lý nào nói về nhường đường cho xe ưu tiên?", "expected_keywords": ["xe ưu tiên"]}
+{"id": "traffic-14-01", "domain": "traffic", "query": "gây tai nạn giao thông được quy định như thế nào?", "expected_keywords": ["tai nạn giao thông"]}
+{"id": "traffic-14-02", "domain": "traffic", "query": "Cho tôi biết quy định pháp luật về gây tai nạn giao thông.", "expected_keywords": ["tai nạn giao thông"]}
+{"id": "traffic-14-03", "domain": "traffic", "query": "Khi nào áp dụng quy định về gây tai nạn giao thông?", "expected_keywords": ["tai nạn giao thông"]}
+{"id": "traffic-14-04", "domain": "traffic", "query": "gây tai nạn giao thông có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["tai nạn giao thông"]}
+{"id": "traffic-14-05", "domain": "traffic", "query": "Căn cứ pháp lý nào nói về gây tai nạn giao thông?", "expected_keywords": ["tai nạn giao thông"]}
+{"id": "traffic-15-01", "domain": "traffic", "query": "chở quá số người quy định được quy định như thế nào?", "expected_keywords": ["chở người"]}
+{"id": "traffic-15-02", "domain": "traffic", "query": "Cho tôi biết quy định pháp luật về chở quá số người quy định.", "expected_keywords": ["chở người"]}
+{"id": "traffic-15-03", "domain": "traffic", "query": "Khi nào áp dụng quy định về chở quá số người quy định?", "expected_keywords": ["chở người"]}
+{"id": "traffic-15-04", "domain": "traffic", "query": "chở quá số người quy định có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["chở người"]}
+{"id": "traffic-15-05", "domain": "traffic", "query": "Căn cứ pháp lý nào nói về chở quá số người quy định?", "expected_keywords": ["chở người"]}
+{"id": "traffic-16-01", "domain": "traffic", "query": "chở hàng cồng kềnh bằng xe máy được quy định như thế nào?", "expected_keywords": ["chở hàng"]}
+{"id": "traffic-16-02", "domain": "traffic", "query": "Cho tôi biết quy định pháp luật về chở hàng cồng kềnh bằng xe máy.", "expected_keywords": ["chở hàng"]}
+{"id": "traffic-16-03", "domain": "traffic", "query": "Khi nào áp dụng quy định về chở hàng cồng kềnh bằng xe máy?", "expected_keywords": ["chở hàng"]}
+{"id": "traffic-16-04", "domain": "traffic", "query": "chở hàng cồng kềnh bằng xe máy có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["chở hàng"]}
+{"id": "traffic-16-05", "domain": "traffic", "query": "Căn cứ pháp lý nào nói về chở hàng cồng kềnh bằng xe máy?", "expected_keywords": ["chở hàng"]}
+{"id": "traffic-17-01", "domain": "traffic", "query": "xe máy đi vào đường cao tốc được quy định như thế nào?", "expected_keywords": ["đường cao tốc"]}
+{"id": "traffic-17-02", "domain": "traffic", "query": "Cho tôi biết quy định pháp luật về xe máy đi vào đường cao tốc.", "expected_keywords": ["đường cao tốc"]}
+{"id": "traffic-17-03", "domain": "traffic", "query": "Khi nào áp dụng quy định về xe máy đi vào đường cao tốc?", "expected_keywords": ["đường cao tốc"]}
+{"id": "traffic-17-04", "domain": "traffic", "query": "xe máy đi vào đường cao tốc có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["đường cao tốc"]}
+{"id": "traffic-17-05", "domain": "traffic", "query": "Căn cứ pháp lý nào nói về xe máy đi vào đường cao tốc?", "expected_keywords": ["đường cao tốc"]}
+{"id": "traffic-18-01", "domain": "traffic", "query": "xe không có gương chiếu hậu được quy định như thế nào?", "expected_keywords": ["gương chiếu hậu"]}
+{"id": "traffic-18-02", "domain": "traffic", "query": "Cho tôi biết quy định pháp luật về xe không có gương chiếu hậu.", "expected_keywords": ["gương chiếu hậu"]}
+{"id": "traffic-18-03", "domain": "traffic", "query": "Khi nào áp dụng quy định về xe không có gương chiếu hậu?", "expected_keywords": ["gương chiếu hậu"]}
+{"id": "traffic-18-04", "domain": "traffic", "query": "xe không có gương chiếu hậu có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["gương chiếu hậu"]}
+{"id": "traffic-18-05", "domain": "traffic", "query": "Căn cứ pháp lý nào nói về xe không có gương chiếu hậu?", "expected_keywords": ["gương chiếu hậu"]}
+{"id": "traffic-19-01", "domain": "traffic", "query": "không bật đèn chiếu sáng được quy định như thế nào?", "expected_keywords": ["đèn chiếu sáng"]}
+{"id": "traffic-19-02", "domain": "traffic", "query": "Cho tôi biết quy định pháp luật về không bật đèn chiếu sáng.", "expected_keywords": ["đèn chiếu sáng"]}
+{"id": "traffic-19-03", "domain": "traffic", "query": "Khi nào áp dụng quy định về không bật đèn chiếu sáng?", "expected_keywords": ["đèn chiếu sáng"]}
+{"id": "traffic-19-04", "domain": "traffic", "query": "không bật đèn chiếu sáng có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["đèn chiếu sáng"]}
+{"id": "traffic-19-05", "domain": "traffic", "query": "Căn cứ pháp lý nào nói về không bật đèn chiếu sáng?", "expected_keywords": ["đèn chiếu sáng"]}
+{"id": "traffic-20-01", "domain": "traffic", "query": "không chấp hành hiệu lệnh của cảnh sát giao thông được quy định như thế nào?", "expected_keywords": ["hiệu lệnh"]}
+{"id": "traffic-20-02", "domain": "traffic", "query": "Cho tôi biết quy định pháp luật về không chấp hành hiệu lệnh của cảnh sát giao thông.", "expected_keywords": ["hiệu lệnh"]}
+{"id": "traffic-20-03", "domain": "traffic", "query": "Khi nào áp dụng quy định về không chấp hành hiệu lệnh của cảnh sát giao thông?", "expected_keywords": ["hiệu lệnh"]}
+{"id": "traffic-20-04", "domain": "traffic", "query": "không chấp hành hiệu lệnh của cảnh sát giao thông có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["hiệu lệnh"]}
+{"id": "traffic-20-05", "domain": "traffic", "query": "Căn cứ pháp lý nào nói về không chấp hành hiệu lệnh của cảnh sát giao thông?", "expected_keywords": ["hiệu lệnh"]}
+{"id": "labor-01-01", "domain": "labor", "query": "nghỉ hằng năm được quy định như thế nào?", "expected_keywords": ["nghỉ hằng năm"]}
+{"id": "labor-01-02", "domain": "labor", "query": "Cho tôi biết quy định pháp luật về nghỉ hằng năm.", "expected_keywords": ["nghỉ hằng năm"]}
+{"id": "labor-01-03", "domain": "labor", "query": "Khi nào áp dụng quy định về nghỉ hằng năm?", "expected_keywords": ["nghỉ hằng năm"]}
+{"id": "labor-01-04", "domain": "labor", "query": "nghỉ hằng năm có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["nghỉ hằng năm"]}
+{"id": "labor-01-05", "domain": "labor", "query": "Căn cứ pháp lý nào nói về nghỉ hằng năm?", "expected_keywords": ["nghỉ hằng năm"]}
+{"id": "labor-02-01", "domain": "labor", "query": "hợp đồng lao động được quy định như thế nào?", "expected_keywords": ["hợp đồng lao động"]}
+{"id": "labor-02-02", "domain": "labor", "query": "Cho tôi biết quy định pháp luật về hợp đồng lao động.", "expected_keywords": ["hợp đồng lao động"]}
+{"id": "labor-02-03", "domain": "labor", "query": "Khi nào áp dụng quy định về hợp đồng lao động?", "expected_keywords": ["hợp đồng lao động"]}
+{"id": "labor-02-04", "domain": "labor", "query": "hợp đồng lao động có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["hợp đồng lao động"]}
+{"id": "labor-02-05", "domain": "labor", "query": "Căn cứ pháp lý nào nói về hợp đồng lao động?", "expected_keywords": ["hợp đồng lao động"]}
+{"id": "labor-03-01", "domain": "labor", "query": "thời giờ làm việc bình thường được quy định như thế nào?", "expected_keywords": ["thời giờ làm việc"]}
+{"id": "labor-03-02", "domain": "labor", "query": "Cho tôi biết quy định pháp luật về thời giờ làm việc bình thường.", "expected_keywords": ["thời giờ làm việc"]}
+{"id": "labor-03-03", "domain": "labor", "query": "Khi nào áp dụng quy định về thời giờ làm việc bình thường?", "expected_keywords": ["thời giờ làm việc"]}
+{"id": "labor-03-04", "domain": "labor", "query": "thời giờ làm việc bình thường có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["thời giờ làm việc"]}
+{"id": "labor-03-05", "domain": "labor", "query": "Căn cứ pháp lý nào nói về thời giờ làm việc bình thường?", "expected_keywords": ["thời giờ làm việc"]}
+{"id": "labor-04-01", "domain": "labor", "query": "ngày nghỉ lễ tết được quy định như thế nào?", "expected_keywords": ["nghỉ lễ", "tết"]}
+{"id": "labor-04-02", "domain": "labor", "query": "Cho tôi biết quy định pháp luật về ngày nghỉ lễ tết.", "expected_keywords": ["nghỉ lễ", "tết"]}
+{"id": "labor-04-03", "domain": "labor", "query": "Khi nào áp dụng quy định về ngày nghỉ lễ tết?", "expected_keywords": ["nghỉ lễ", "tết"]}
+{"id": "labor-04-04", "domain": "labor", "query": "ngày nghỉ lễ tết có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["nghỉ lễ", "tết"]}
+{"id": "labor-04-05", "domain": "labor", "query": "Căn cứ pháp lý nào nói về ngày nghỉ lễ tết?", "expected_keywords": ["nghỉ lễ", "tết"]}
+{"id": "labor-05-01", "domain": "labor", "query": "mức lương tối thiểu được quy định như thế nào?", "expected_keywords": ["mức lương tối thiểu"]}
+{"id": "labor-05-02", "domain": "labor", "query": "Cho tôi biết quy định pháp luật về mức lương tối thiểu.", "expected_keywords": ["mức lương tối thiểu"]}
+{"id": "labor-05-03", "domain": "labor", "query": "Khi nào áp dụng quy định về mức lương tối thiểu?", "expected_keywords": ["mức lương tối thiểu"]}
+{"id": "labor-05-04", "domain": "labor", "query": "mức lương tối thiểu có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["mức lương tối thiểu"]}
+{"id": "labor-05-05", "domain": "labor", "query": "Căn cứ pháp lý nào nói về mức lương tối thiểu?", "expected_keywords": ["mức lương tối thiểu"]}
+{"id": "labor-06-01", "domain": "labor", "query": "tiền lương làm thêm giờ được quy định như thế nào?", "expected_keywords": ["làm thêm giờ", "tiền lương"]}
+{"id": "labor-06-02", "domain": "labor", "query": "Cho tôi biết quy định pháp luật về tiền lương làm thêm giờ.", "expected_keywords": ["làm thêm giờ", "tiền lương"]}
+{"id": "labor-06-03", "domain": "labor", "query": "Khi nào áp dụng quy định về tiền lương làm thêm giờ?", "expected_keywords": ["làm thêm giờ", "tiền lương"]}
+{"id": "labor-06-04", "domain": "labor", "query": "tiền lương làm thêm giờ có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["làm thêm giờ", "tiền lương"]}
+{"id": "labor-06-05", "domain": "labor", "query": "Căn cứ pháp lý nào nói về tiền lương làm thêm giờ?", "expected_keywords": ["làm thêm giờ", "tiền lương"]}
+{"id": "labor-07-01", "domain": "labor", "query": "kỷ luật lao động được quy định như thế nào?", "expected_keywords": ["kỷ luật lao động"]}
+{"id": "labor-07-02", "domain": "labor", "query": "Cho tôi biết quy định pháp luật về kỷ luật lao động.", "expected_keywords": ["kỷ luật lao động"]}
+{"id": "labor-07-03", "domain": "labor", "query": "Khi nào áp dụng quy định về kỷ luật lao động?", "expected_keywords": ["kỷ luật lao động"]}
+{"id": "labor-07-04", "domain": "labor", "query": "kỷ luật lao động có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["kỷ luật lao động"]}
+{"id": "labor-07-05", "domain": "labor", "query": "Căn cứ pháp lý nào nói về kỷ luật lao động?", "expected_keywords": ["kỷ luật lao động"]}
+{"id": "labor-08-01", "domain": "labor", "query": "đơn phương chấm dứt hợp đồng được quy định như thế nào?", "expected_keywords": ["đơn phương chấm dứt"]}
+{"id": "labor-08-02", "domain": "labor", "query": "Cho tôi biết quy định pháp luật về đơn phương chấm dứt hợp đồng.", "expected_keywords": ["đơn phương chấm dứt"]}
+{"id": "labor-08-03", "domain": "labor", "query": "Khi nào áp dụng quy định về đơn phương chấm dứt hợp đồng?", "expected_keywords": ["đơn phương chấm dứt"]}
+{"id": "labor-08-04", "domain": "labor", "query": "đơn phương chấm dứt hợp đồng có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["đơn phương chấm dứt"]}
+{"id": "labor-08-05", "domain": "labor", "query": "Căn cứ pháp lý nào nói về đơn phương chấm dứt hợp đồng?", "expected_keywords": ["đơn phương chấm dứt"]}
+{"id": "labor-09-01", "domain": "labor", "query": "thời gian thử việc được quy định như thế nào?", "expected_keywords": ["thử việc"]}
+{"id": "labor-09-02", "domain": "labor", "query": "Cho tôi biết quy định pháp luật về thời gian thử việc.", "expected_keywords": ["thử việc"]}
+{"id": "labor-09-03", "domain": "labor", "query": "Khi nào áp dụng quy định về thời gian thử việc?", "expected_keywords": ["thử việc"]}
+{"id": "labor-09-04", "domain": "labor", "query": "thời gian thử việc có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["thử việc"]}
+{"id": "labor-09-05", "domain": "labor", "query": "Căn cứ pháp lý nào nói về thời gian thử việc?", "expected_keywords": ["thử việc"]}
+{"id": "labor-10-01", "domain": "labor", "query": "nghỉ thai sản được quy định như thế nào?", "expected_keywords": ["thai sản"]}
+{"id": "labor-10-02", "domain": "labor", "query": "Cho tôi biết quy định pháp luật về nghỉ thai sản.", "expected_keywords": ["thai sản"]}
+{"id": "labor-10-03", "domain": "labor", "query": "Khi nào áp dụng quy định về nghỉ thai sản?", "expected_keywords": ["thai sản"]}
+{"id": "labor-10-04", "domain": "labor", "query": "nghỉ thai sản có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["thai sản"]}
+{"id": "labor-10-05", "domain": "labor", "query": "Căn cứ pháp lý nào nói về nghỉ thai sản?", "expected_keywords": ["thai sản"]}
+{"id": "labor-11-01", "domain": "labor", "query": "bảo hiểm xã hội của người lao động được quy định như thế nào?", "expected_keywords": ["bảo hiểm xã hội"]}
+{"id": "labor-11-02", "domain": "labor", "query": "Cho tôi biết quy định pháp luật về bảo hiểm xã hội của người lao động.", "expected_keywords": ["bảo hiểm xã hội"]}
+{"id": "labor-11-03", "domain": "labor", "query": "Khi nào áp dụng quy định về bảo hiểm xã hội của người lao động?", "expected_keywords": ["bảo hiểm xã hội"]}
+{"id": "labor-11-04", "domain": "labor", "query": "bảo hiểm xã hội của người lao động có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["bảo hiểm xã hội"]}
+{"id": "labor-11-05", "domain": "labor", "query": "Căn cứ pháp lý nào nói về bảo hiểm xã hội của người lao động?", "expected_keywords": ["bảo hiểm xã hội"]}
+{"id": "labor-12-01", "domain": "labor", "query": "tai nạn lao động được quy định như thế nào?", "expected_keywords": ["tai nạn lao động"]}
+{"id": "labor-12-02", "domain": "labor", "query": "Cho tôi biết quy định pháp luật về tai nạn lao động.", "expected_keywords": ["tai nạn lao động"]}
+{"id": "labor-12-03", "domain": "labor", "query": "Khi nào áp dụng quy định về tai nạn lao động?", "expected_keywords": ["tai nạn lao động"]}
+{"id": "labor-12-04", "domain": "labor", "query": "tai nạn lao động có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["tai nạn lao động"]}
+{"id": "labor-12-05", "domain": "labor", "query": "Căn cứ pháp lý nào nói về tai nạn lao động?", "expected_keywords": ["tai nạn lao động"]}
+{"id": "labor-13-01", "domain": "labor", "query": "an toàn vệ sinh lao động được quy định như thế nào?", "expected_keywords": ["an toàn lao động"]}
+{"id": "labor-13-02", "domain": "labor", "query": "Cho tôi biết quy định pháp luật về an toàn vệ sinh lao động.", "expected_keywords": ["an toàn lao động"]}
+{"id": "labor-13-03", "domain": "labor", "query": "Khi nào áp dụng quy định về an toàn vệ sinh lao động?", "expected_keywords": ["an toàn lao động"]}
+{"id": "labor-13-04", "domain": "labor", "query": "an toàn vệ sinh lao động có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["an toàn lao động"]}
+{"id": "labor-13-05", "domain": "labor", "query": "Căn cứ pháp lý nào nói về an toàn vệ sinh lao động?", "expected_keywords": ["an toàn lao động"]}
+{"id": "labor-14-01", "domain": "labor", "query": "nghỉ việc riêng được quy định như thế nào?", "expected_keywords": ["nghỉ việc riêng"]}
+{"id": "labor-14-02", "domain": "labor", "query": "Cho tôi biết quy định pháp luật về nghỉ việc riêng.", "expected_keywords": ["nghỉ việc riêng"]}
+{"id": "labor-14-03", "domain": "labor", "query": "Khi nào áp dụng quy định về nghỉ việc riêng?", "expected_keywords": ["nghỉ việc riêng"]}
+{"id": "labor-14-04", "domain": "labor", "query": "nghỉ việc riêng có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["nghỉ việc riêng"]}
+{"id": "labor-14-05", "domain": "labor", "query": "Căn cứ pháp lý nào nói về nghỉ việc riêng?", "expected_keywords": ["nghỉ việc riêng"]}
+{"id": "labor-15-01", "domain": "labor", "query": "kỳ hạn trả lương được quy định như thế nào?", "expected_keywords": ["trả lương"]}
+{"id": "labor-15-02", "domain": "labor", "query": "Cho tôi biết quy định pháp luật về kỳ hạn trả lương.", "expected_keywords": ["trả lương"]}
+{"id": "labor-15-03", "domain": "labor", "query": "Khi nào áp dụng quy định về kỳ hạn trả lương?", "expected_keywords": ["trả lương"]}
+{"id": "labor-15-04", "domain": "labor", "query": "kỳ hạn trả lương có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["trả lương"]}
+{"id": "labor-15-05", "domain": "labor", "query": "Căn cứ pháp lý nào nói về kỳ hạn trả lương?", "expected_keywords": ["trả lương"]}
+{"id": "labor-16-01", "domain": "labor", "query": "thời giờ nghỉ ngơi được quy định như thế nào?", "expected_keywords": ["thời giờ nghỉ ngơi"]}
+{"id": "labor-16-02", "domain": "labor", "query": "Cho tôi biết quy định pháp luật về thời giờ nghỉ ngơi.", "expected_keywords": ["thời giờ nghỉ ngơi"]}
+{"id": "labor-16-03", "domain": "labor", "query": "Khi nào áp dụng quy định về thời giờ nghỉ ngơi?", "expected_keywords": ["thời giờ nghỉ ngơi"]}
+{"id": "labor-16-04", "domain": "labor", "query": "thời giờ nghỉ ngơi có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["thời giờ nghỉ ngơi"]}
+{"id": "labor-16-05", "domain": "labor", "query": "Căn cứ pháp lý nào nói về thời giờ nghỉ ngơi?", "expected_keywords": ["thời giờ nghỉ ngơi"]}
+{"id": "labor-17-01", "domain": "labor", "query": "người lao động cao tuổi được quy định như thế nào?", "expected_keywords": ["lao động cao tuổi"]}
+{"id": "labor-17-02", "domain": "labor", "query": "Cho tôi biết quy định pháp luật về người lao động cao tuổi.", "expected_keywords": ["lao động cao tuổi"]}
+{"id": "labor-17-03", "domain": "labor", "query": "Khi nào áp dụng quy định về người lao động cao tuổi?", "expected_keywords": ["lao động cao tuổi"]}
+{"id": "labor-17-04", "domain": "labor", "query": "người lao động cao tuổi có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["lao động cao tuổi"]}
+{"id": "labor-17-05", "domain": "labor", "query": "Căn cứ pháp lý nào nói về người lao động cao tuổi?", "expected_keywords": ["lao động cao tuổi"]}
+{"id": "labor-18-01", "domain": "labor", "query": "lao động chưa thành niên được quy định như thế nào?", "expected_keywords": ["lao động chưa thành niên"]}
+{"id": "labor-18-02", "domain": "labor", "query": "Cho tôi biết quy định pháp luật về lao động chưa thành niên.", "expected_keywords": ["lao động chưa thành niên"]}
+{"id": "labor-18-03", "domain": "labor", "query": "Khi nào áp dụng quy định về lao động chưa thành niên?", "expected_keywords": ["lao động chưa thành niên"]}
+{"id": "labor-18-04", "domain": "labor", "query": "lao động chưa thành niên có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["lao động chưa thành niên"]}
+{"id": "labor-18-05", "domain": "labor", "query": "Căn cứ pháp lý nào nói về lao động chưa thành niên?", "expected_keywords": ["lao động chưa thành niên"]}
+{"id": "labor-19-01", "domain": "labor", "query": "sa thải người lao động được quy định như thế nào?", "expected_keywords": ["sa thải"]}
+{"id": "labor-19-02", "domain": "labor", "query": "Cho tôi biết quy định pháp luật về sa thải người lao động.", "expected_keywords": ["sa thải"]}
+{"id": "labor-19-03", "domain": "labor", "query": "Khi nào áp dụng quy định về sa thải người lao động?", "expected_keywords": ["sa thải"]}
+{"id": "labor-19-04", "domain": "labor", "query": "sa thải người lao động có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["sa thải"]}
+{"id": "labor-19-05", "domain": "labor", "query": "Căn cứ pháp lý nào nói về sa thải người lao động?", "expected_keywords": ["sa thải"]}
+{"id": "labor-20-01", "domain": "labor", "query": "tranh chấp lao động được quy định như thế nào?", "expected_keywords": ["tranh chấp lao động"]}
+{"id": "labor-20-02", "domain": "labor", "query": "Cho tôi biết quy định pháp luật về tranh chấp lao động.", "expected_keywords": ["tranh chấp lao động"]}
+{"id": "labor-20-03", "domain": "labor", "query": "Khi nào áp dụng quy định về tranh chấp lao động?", "expected_keywords": ["tranh chấp lao động"]}
+{"id": "labor-20-04", "domain": "labor", "query": "tranh chấp lao động có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["tranh chấp lao động"]}
+{"id": "labor-20-05", "domain": "labor", "query": "Căn cứ pháp lý nào nói về tranh chấp lao động?", "expected_keywords": ["tranh chấp lao động"]}
+{"id": "accounting-01-01", "domain": "accounting", "query": "nguyên tắc kế toán được quy định như thế nào?", "expected_keywords": ["nguyên tắc kế toán"]}
+{"id": "accounting-01-02", "domain": "accounting", "query": "Cho tôi biết quy định pháp luật về nguyên tắc kế toán.", "expected_keywords": ["nguyên tắc kế toán"]}
+{"id": "accounting-01-03", "domain": "accounting", "query": "Khi nào áp dụng quy định về nguyên tắc kế toán?", "expected_keywords": ["nguyên tắc kế toán"]}
+{"id": "accounting-01-04", "domain": "accounting", "query": "nguyên tắc kế toán có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["nguyên tắc kế toán"]}
+{"id": "accounting-01-05", "domain": "accounting", "query": "Căn cứ pháp lý nào nói về nguyên tắc kế toán?", "expected_keywords": ["nguyên tắc kế toán"]}
+{"id": "accounting-02-01", "domain": "accounting", "query": "chứng từ kế toán được quy định như thế nào?", "expected_keywords": ["chứng từ kế toán"]}
+{"id": "accounting-02-02", "domain": "accounting", "query": "Cho tôi biết quy định pháp luật về chứng từ kế toán.", "expected_keywords": ["chứng từ kế toán"]}
+{"id": "accounting-02-03", "domain": "accounting", "query": "Khi nào áp dụng quy định về chứng từ kế toán?", "expected_keywords": ["chứng từ kế toán"]}
+{"id": "accounting-02-04", "domain": "accounting", "query": "chứng từ kế toán có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["chứng từ kế toán"]}
+{"id": "accounting-02-05", "domain": "accounting", "query": "Căn cứ pháp lý nào nói về chứng từ kế toán?", "expected_keywords": ["chứng từ kế toán"]}
+{"id": "accounting-03-01", "domain": "accounting", "query": "hóa đơn điện tử được quy định như thế nào?", "expected_keywords": ["hóa đơn điện tử"]}
+{"id": "accounting-03-02", "domain": "accounting", "query": "Cho tôi biết quy định pháp luật về hóa đơn điện tử.", "expected_keywords": ["hóa đơn điện tử"]}
+{"id": "accounting-03-03", "domain": "accounting", "query": "Khi nào áp dụng quy định về hóa đơn điện tử?", "expected_keywords": ["hóa đơn điện tử"]}
+{"id": "accounting-03-04", "domain": "accounting", "query": "hóa đơn điện tử có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["hóa đơn điện tử"]}
+{"id": "accounting-03-05", "domain": "accounting", "query": "Căn cứ pháp lý nào nói về hóa đơn điện tử?", "expected_keywords": ["hóa đơn điện tử"]}
+{"id": "accounting-04-01", "domain": "accounting", "query": "thuế giá trị gia tăng được quy định như thế nào?", "expected_keywords": ["thuế giá trị gia tăng"]}
+{"id": "accounting-04-02", "domain": "accounting", "query": "Cho tôi biết quy định pháp luật về thuế giá trị gia tăng.", "expected_keywords": ["thuế giá trị gia tăng"]}
+{"id": "accounting-04-03", "domain": "accounting", "query": "Khi nào áp dụng quy định về thuế giá trị gia tăng?", "expected_keywords": ["thuế giá trị gia tăng"]}
+{"id": "accounting-04-04", "domain": "accounting", "query": "thuế giá trị gia tăng có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["thuế giá trị gia tăng"]}
+{"id": "accounting-04-05", "domain": "accounting", "query": "Căn cứ pháp lý nào nói về thuế giá trị gia tăng?", "expected_keywords": ["thuế giá trị gia tăng"]}
+{"id": "accounting-05-01", "domain": "accounting", "query": "kê khai thuế được quy định như thế nào?", "expected_keywords": ["kê khai", "thuế"]}
+{"id": "accounting-05-02", "domain": "accounting", "query": "Cho tôi biết quy định pháp luật về kê khai thuế.", "expected_keywords": ["kê khai", "thuế"]}
+{"id": "accounting-05-03", "domain": "accounting", "query": "Khi nào áp dụng quy định về kê khai thuế?", "expected_keywords": ["kê khai", "thuế"]}
+{"id": "accounting-05-04", "domain": "accounting", "query": "kê khai thuế có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["kê khai", "thuế"]}
+{"id": "accounting-05-05", "domain": "accounting", "query": "Căn cứ pháp lý nào nói về kê khai thuế?", "expected_keywords": ["kê khai", "thuế"]}
+{"id": "accounting-06-01", "domain": "accounting", "query": "quyết toán thuế được quy định như thế nào?", "expected_keywords": ["quyết toán thuế"]}
+{"id": "accounting-06-02", "domain": "accounting", "query": "Cho tôi biết quy định pháp luật về quyết toán thuế.", "expected_keywords": ["quyết toán thuế"]}
+{"id": "accounting-06-03", "domain": "accounting", "query": "Khi nào áp dụng quy định về quyết toán thuế?", "expected_keywords": ["quyết toán thuế"]}
+{"id": "accounting-06-04", "domain": "accounting", "query": "quyết toán thuế có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["quyết toán thuế"]}
+{"id": "accounting-06-05", "domain": "accounting", "query": "Căn cứ pháp lý nào nói về quyết toán thuế?", "expected_keywords": ["quyết toán thuế"]}
+{"id": "accounting-07-01", "domain": "accounting", "query": "lưu trữ tài liệu kế toán được quy định như thế nào?", "expected_keywords": ["lưu trữ", "kế toán"]}
+{"id": "accounting-07-02", "domain": "accounting", "query": "Cho tôi biết quy định pháp luật về lưu trữ tài liệu kế toán.", "expected_keywords": ["lưu trữ", "kế toán"]}
+{"id": "accounting-07-03", "domain": "accounting", "query": "Khi nào áp dụng quy định về lưu trữ tài liệu kế toán?", "expected_keywords": ["lưu trữ", "kế toán"]}
+{"id": "accounting-07-04", "domain": "accounting", "query": "lưu trữ tài liệu kế toán có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["lưu trữ", "kế toán"]}
+{"id": "accounting-07-05", "domain": "accounting", "query": "Căn cứ pháp lý nào nói về lưu trữ tài liệu kế toán?", "expected_keywords": ["lưu trữ", "kế toán"]}
+{"id": "accounting-08-01", "domain": "accounting", "query": "báo cáo tài chính được quy định như thế nào?", "expected_keywords": ["báo cáo tài chính"]}
+{"id": "accounting-08-02", "domain": "accounting", "query": "Cho tôi biết quy định pháp luật về báo cáo tài chính.", "expected_keywords": ["báo cáo tài chính"]}
+{"id": "accounting-08-03", "domain": "accounting", "query": "Khi nào áp dụng quy định về báo cáo tài chính?", "expected_keywords": ["báo cáo tài chính"]}
+{"id": "accounting-08-04", "domain": "accounting", "query": "báo cáo tài chính có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["báo cáo tài chính"]}
+{"id": "accounting-08-05", "domain": "accounting", "query": "Căn cứ pháp lý nào nói về báo cáo tài chính?", "expected_keywords": ["báo cáo tài chính"]}
+{"id": "accounting-09-01", "domain": "accounting", "query": "tổ chức công tác kế toán được quy định như thế nào?", "expected_keywords": ["công tác kế toán"]}
+{"id": "accounting-09-02", "domain": "accounting", "query": "Cho tôi biết quy định pháp luật về tổ chức công tác kế toán.", "expected_keywords": ["công tác kế toán"]}
+{"id": "accounting-09-03", "domain": "accounting", "query": "Khi nào áp dụng quy định về tổ chức công tác kế toán?", "expected_keywords": ["công tác kế toán"]}
+{"id": "accounting-09-04", "domain": "accounting", "query": "tổ chức công tác kế toán có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["công tác kế toán"]}
+{"id": "accounting-09-05", "domain": "accounting", "query": "Căn cứ pháp lý nào nói về tổ chức công tác kế toán?", "expected_keywords": ["công tác kế toán"]}
+{"id": "accounting-10-01", "domain": "accounting", "query": "kế toán trưởng được quy định như thế nào?", "expected_keywords": ["kế toán trưởng"]}
+{"id": "accounting-10-02", "domain": "accounting", "query": "Cho tôi biết quy định pháp luật về kế toán trưởng.", "expected_keywords": ["kế toán trưởng"]}
+{"id": "accounting-10-03", "domain": "accounting", "query": "Khi nào áp dụng quy định về kế toán trưởng?", "expected_keywords": ["kế toán trưởng"]}
+{"id": "accounting-10-04", "domain": "accounting", "query": "kế toán trưởng có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["kế toán trưởng"]}
+{"id": "accounting-10-05", "domain": "accounting", "query": "Căn cứ pháp lý nào nói về kế toán trưởng?", "expected_keywords": ["kế toán trưởng"]}
+{"id": "accounting-11-01", "domain": "accounting", "query": "ghi nhận tài sản kế toán được quy định như thế nào?", "expected_keywords": ["tài sản", "ghi nhận"]}
+{"id": "accounting-11-02", "domain": "accounting", "query": "Cho tôi biết quy định pháp luật về ghi nhận tài sản kế toán.", "expected_keywords": ["tài sản", "ghi nhận"]}
+{"id": "accounting-11-03", "domain": "accounting", "query": "Khi nào áp dụng quy định về ghi nhận tài sản kế toán?", "expected_keywords": ["tài sản", "ghi nhận"]}
+{"id": "accounting-11-04", "domain": "accounting", "query": "ghi nhận tài sản kế toán có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["tài sản", "ghi nhận"]}
+{"id": "accounting-11-05", "domain": "accounting", "query": "Căn cứ pháp lý nào nói về ghi nhận tài sản kế toán?", "expected_keywords": ["tài sản", "ghi nhận"]}
+{"id": "accounting-12-01", "domain": "accounting", "query": "hủy chứng từ kế toán được quy định như thế nào?", "expected_keywords": ["chứng từ kế toán"]}
+{"id": "accounting-12-02", "domain": "accounting", "query": "Cho tôi biết quy định pháp luật về hủy chứng từ kế toán.", "expected_keywords": ["chứng từ kế toán"]}
+{"id": "accounting-12-03", "domain": "accounting", "query": "Khi nào áp dụng quy định về hủy chứng từ kế toán?", "expected_keywords": ["chứng từ kế toán"]}
+{"id": "accounting-12-04", "domain": "accounting", "query": "hủy chứng từ kế toán có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["chứng từ kế toán"]}
+{"id": "accounting-12-05", "domain": "accounting", "query": "Căn cứ pháp lý nào nói về hủy chứng từ kế toán?", "expected_keywords": ["chứng từ kế toán"]}
+{"id": "accounting-13-01", "domain": "accounting", "query": "kiểm kê tài sản được quy định như thế nào?", "expected_keywords": ["kiểm kê tài sản"]}
+{"id": "accounting-13-02", "domain": "accounting", "query": "Cho tôi biết quy định pháp luật về kiểm kê tài sản.", "expected_keywords": ["kiểm kê tài sản"]}
+{"id": "accounting-13-03", "domain": "accounting", "query": "Khi nào áp dụng quy định về kiểm kê tài sản?", "expected_keywords": ["kiểm kê tài sản"]}
+{"id": "accounting-13-04", "domain": "accounting", "query": "kiểm kê tài sản có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["kiểm kê tài sản"]}
+{"id": "accounting-13-05", "domain": "accounting", "query": "Căn cứ pháp lý nào nói về kiểm kê tài sản?", "expected_keywords": ["kiểm kê tài sản"]}
+{"id": "accounting-14-01", "domain": "accounting", "query": "ký báo cáo tài chính được quy định như thế nào?", "expected_keywords": ["báo cáo tài chính"]}
+{"id": "accounting-14-02", "domain": "accounting", "query": "Cho tôi biết quy định pháp luật về ký báo cáo tài chính.", "expected_keywords": ["báo cáo tài chính"]}
+{"id": "accounting-14-03", "domain": "accounting", "query": "Khi nào áp dụng quy định về ký báo cáo tài chính?", "expected_keywords": ["báo cáo tài chính"]}
+{"id": "accounting-14-04", "domain": "accounting", "query": "ký báo cáo tài chính có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["báo cáo tài chính"]}
+{"id": "accounting-14-05", "domain": "accounting", "query": "Căn cứ pháp lý nào nói về ký báo cáo tài chính?", "expected_keywords": ["báo cáo tài chính"]}
+{"id": "accounting-15-01", "domain": "accounting", "query": "vi phạm pháp luật về kế toán được quy định như thế nào?", "expected_keywords": ["vi phạm", "kế toán"]}
+{"id": "accounting-15-02", "domain": "accounting", "query": "Cho tôi biết quy định pháp luật về vi phạm pháp luật về kế toán.", "expected_keywords": ["vi phạm", "kế toán"]}
+{"id": "accounting-15-03", "domain": "accounting", "query": "Khi nào áp dụng quy định về vi phạm pháp luật về kế toán?", "expected_keywords": ["vi phạm", "kế toán"]}
+{"id": "accounting-15-04", "domain": "accounting", "query": "vi phạm pháp luật về kế toán có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["vi phạm", "kế toán"]}
+{"id": "accounting-15-05", "domain": "accounting", "query": "Căn cứ pháp lý nào nói về vi phạm pháp luật về kế toán?", "expected_keywords": ["vi phạm", "kế toán"]}
+{"id": "accounting-16-01", "domain": "accounting", "query": "sổ kế toán và khóa sổ được quy định như thế nào?", "expected_keywords": ["sổ kế toán"]}
+{"id": "accounting-16-02", "domain": "accounting", "query": "Cho tôi biết quy định pháp luật về sổ kế toán và khóa sổ.", "expected_keywords": ["sổ kế toán"]}
+{"id": "accounting-16-03", "domain": "accounting", "query": "Khi nào áp dụng quy định về sổ kế toán và khóa sổ?", "expected_keywords": ["sổ kế toán"]}
+{"id": "accounting-16-04", "domain": "accounting", "query": "sổ kế toán và khóa sổ có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["sổ kế toán"]}
+{"id": "accounting-16-05", "domain": "accounting", "query": "Căn cứ pháp lý nào nói về sổ kế toán và khóa sổ?", "expected_keywords": ["sổ kế toán"]}
+{"id": "accounting-17-01", "domain": "accounting", "query": "thời hạn nộp báo cáo tài chính được quy định như thế nào?", "expected_keywords": ["báo cáo tài chính", "thời hạn"]}
+{"id": "accounting-17-02", "domain": "accounting", "query": "Cho tôi biết quy định pháp luật về thời hạn nộp báo cáo tài chính.", "expected_keywords": ["báo cáo tài chính", "thời hạn"]}
+{"id": "accounting-17-03", "domain": "accounting", "query": "Khi nào áp dụng quy định về thời hạn nộp báo cáo tài chính?", "expected_keywords": ["báo cáo tài chính", "thời hạn"]}
+{"id": "accounting-17-04", "domain": "accounting", "query": "thời hạn nộp báo cáo tài chính có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["báo cáo tài chính", "thời hạn"]}
+{"id": "accounting-17-05", "domain": "accounting", "query": "Căn cứ pháp lý nào nói về thời hạn nộp báo cáo tài chính?", "expected_keywords": ["báo cáo tài chính", "thời hạn"]}
+{"id": "accounting-18-01", "domain": "accounting", "query": "thuế thu nhập doanh nghiệp được quy định như thế nào?", "expected_keywords": ["thuế thu nhập doanh nghiệp"]}
+{"id": "accounting-18-02", "domain": "accounting", "query": "Cho tôi biết quy định pháp luật về thuế thu nhập doanh nghiệp.", "expected_keywords": ["thuế thu nhập doanh nghiệp"]}
+{"id": "accounting-18-03", "domain": "accounting", "query": "Khi nào áp dụng quy định về thuế thu nhập doanh nghiệp?", "expected_keywords": ["thuế thu nhập doanh nghiệp"]}
+{"id": "accounting-18-04", "domain": "accounting", "query": "thuế thu nhập doanh nghiệp có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["thuế thu nhập doanh nghiệp"]}
+{"id": "accounting-18-05", "domain": "accounting", "query": "Căn cứ pháp lý nào nói về thuế thu nhập doanh nghiệp?", "expected_keywords": ["thuế thu nhập doanh nghiệp"]}
+{"id": "accounting-19-01", "domain": "accounting", "query": "hóa đơn sai thông tin được quy định như thế nào?", "expected_keywords": ["hóa đơn"]}
+{"id": "accounting-19-02", "domain": "accounting", "query": "Cho tôi biết quy định pháp luật về hóa đơn sai thông tin.", "expected_keywords": ["hóa đơn"]}
+{"id": "accounting-19-03", "domain": "accounting", "query": "Khi nào áp dụng quy định về hóa đơn sai thông tin?", "expected_keywords": ["hóa đơn"]}
+{"id": "accounting-19-04", "domain": "accounting", "query": "hóa đơn sai thông tin có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["hóa đơn"]}
+{"id": "accounting-19-05", "domain": "accounting", "query": "Căn cứ pháp lý nào nói về hóa đơn sai thông tin?", "expected_keywords": ["hóa đơn"]}
+{"id": "accounting-20-01", "domain": "accounting", "query": "quyền và nghĩa vụ của đơn vị kế toán được quy định như thế nào?", "expected_keywords": ["đơn vị kế toán"]}
+{"id": "accounting-20-02", "domain": "accounting", "query": "Cho tôi biết quy định pháp luật về quyền và nghĩa vụ của đơn vị kế toán.", "expected_keywords": ["đơn vị kế toán"]}
+{"id": "accounting-20-03", "domain": "accounting", "query": "Khi nào áp dụng quy định về quyền và nghĩa vụ của đơn vị kế toán?", "expected_keywords": ["đơn vị kế toán"]}
+{"id": "accounting-20-04", "domain": "accounting", "query": "quyền và nghĩa vụ của đơn vị kế toán có những điều kiện hoặc mức xử lý nào?", "expected_keywords": ["đơn vị kế toán"]}
+{"id": "accounting-20-05", "domain": "accounting", "query": "Căn cứ pháp lý nào nói về quyền và nghĩa vụ của đơn vị kế toán?", "expected_keywords": ["đơn vị kế toán"]}

@@ -1,0 +1,98 @@
+direction: down
+
+classes: {
+  stage: {
+    style.fill: "#F8FAFC"
+    style.stroke: "#CBD5E1"
+    style.border-radius: 16
+    style.font-color: "#0F172A"
+  }
+  step: {
+    style.fill: "#FFFFFF"
+    style.stroke: "#94A3B8"
+    style.border-radius: 10
+    style.font-color: "#0F172A"
+  }
+  decision: {
+    shape: diamond
+    style.fill: "#FEF3C7"
+    style.stroke: "#F59E0B"
+    style.font-color: "#78350F"
+  }
+  safe: {
+    style.fill: "#ECFDF5"
+    style.stroke: "#34D399"
+    style.border-radius: 10
+    style.font-color: "#064E3B"
+  }
+  fallback: {
+    style.fill: "#FFF1F2"
+    style.stroke: "#FB7185"
+    style.border-radius: 10
+    style.font-color: "#881337"
+  }
+}
+
+start: "Câu hỏi người dùng" { shape: oval; class: safe }
+
+route: 1. Định tuyến và ngữ cảnh {
+  direction: down
+  class: stage
+  history: "Nạp bộ nhớ hội thoại" { class: step }
+  clean: "Chuẩn hóa query" { class: step }
+  intent: "Intent + lĩnh vực" { class: decision }
+  overview: "Trả lời tổng quan" { class: step }
+  clarify: "Hỏi lại để làm rõ" { class: step }
+  history -> clean -> intent
+  intent -> overview: tổng quan
+  intent -> clarify: thiếu ngữ cảnh
+}
+
+plan: 2. Lập kế hoạch query {
+  direction: down
+  class: stage
+  dispatch: "Chuyển đến agent lĩnh vực" { class: safe }
+  rewrite: "Mở rộng + phân rã query" { class: step }
+  filters: "Lọc metadata / theo phương tiện" { class: step }
+  dispatch -> rewrite -> filters
+}
+
+retrieve: 3. Truy xuất evidence {
+  direction: down
+  class: stage
+  hybrid: "Chroma + BM25 + RRF" { class: step }
+  parent: "Mở rộng ngữ cảnh parent" { class: step }
+  rank: "Query phức tạp hoặc\nđộ tin cậy thấp?" { class: decision }
+  rerank: "Xếp hạng lại bằng cross-encoder\ncó điều kiện" { class: step }
+  evidence: "Evidence đã xếp hạng" { class: safe }
+  hybrid -> parent -> rank
+  rank -> rerank: có
+  rank -> evidence: không
+  rerank -> evidence
+}
+
+answer: 4. Reflection và trả lời {
+  direction: down
+  class: stage
+  reflect: "Reflection / Self-RAG" { class: step }
+  enough: "Evidence có đủ không?" { class: decision }
+  generate: "Sinh câu trả lời ngắn gọn\nbám evidence" { class: step }
+  verify: "Kiểm chứng citation\nguardrail định lượng" { class: step }
+  verified: "Câu trả lời đã kiểm chứng" { class: safe }
+  fallback: "Fallback an toàn\nchưa đủ evidence" { class: fallback }
+  reflect -> enough
+  enough -> generate: có
+  enough -> fallback: không
+  generate -> verify -> verified
+}
+
+save: "Lưu hội thoại + checkpoint" { class: step }
+
+start -> route.history
+route.intent -> plan.dispatch: câu hỏi pháp luật
+plan.filters -> retrieve.hybrid
+retrieve.evidence -> answer.reflect
+route.overview -> save
+route.clarify -> save
+answer.verified -> save
+answer.fallback -> save

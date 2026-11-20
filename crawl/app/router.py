@@ -1,0 +1,746 @@
+import logging
+import operator
+import inspect
+import re
+import uuid
+from typing import Annotated, Any, Literal
+from typing_extensions import TypedDict
+
+from pydantic import BaseModel, Field
+from langgraph.checkpoint.memory import MemorySaver
+from .checkpoint import get_sqlite_checkpointer
+from langgraph.constants import Send
+from langgraph.graph import END, START, StateGraph
+
+from .citation_guardrail import INSUFFICIENT_EVIDENCE, verify_citations_guardrail
+from .intent_guardrail import get_intent_guardrail
+from .agents.traffic_agent import run_traffic_agent
+from .agents.labor_agent import run_labor_agent
+from .agents.accounting_agent import run_accounting_agent
+from .config import Settings, get_settings
+from .query_normalization import clean_query, expand_query_for_retrieval, normalize_for_routing
+from .llm import build_structured_model
+from .overview import build_domain_overview, detect_overview_domain
+
+logger = logging.getLogger(__name__)
+
+_default_checkpointer = get_sqlite_checkpointer()
+
+LEGAL_DOMAINS = ("traffic", "labor", "accounting")
+DOMAIN_LABELS = {
+    "traffic": "giao th\u00f4ng",
+    "labor": "lao \u0111\u1ed9ng",
+    "accounting": "thu\u1ebf",
+}
+CLARIFICATION_ANSWER = (
+    "B\u1ea1n mu\u1ed1n tra c\u1ee9u l\u0129nh v\u1ef1c n\u00e0o: "
+    "giao th\u00f4ng, lao \u0111\u1ed9ng hay thu\u1ebf/k\u1ebf to\u00e1n?"
+)
+
+
+class Classification(BaseModel):
+    domain: Literal["traffic", "labor", "accounting"]
+    query: str = Field(min_length=2)
+    sub_queries: list[str] = Field(default_factory=list, description="Danh sách các hành vi vi phạm hoặc câu hỏi con cốt lõi được bóc tách từ tình huống dài")
+
+
+class ClassificationPayload(BaseModel):
+    classifications: list[Classification] = Field(default_factory=list)
+
+
+class AgentOutput(BaseModel):
+    domain: Literal["traffic", "labor", "accounting"]
+    query: str
+    answer: str
+    status: str
+    citations: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class SynthesizerPayload(BaseModel):
+    answer: str = Field(
+        description="Câu trả lời pháp lý tổng hợp liền mạch, chuẩn xác, mạch lạc, chia bố cục rõ ràng"
+    )
+    cited_document_ids: list[str] = Field(
+        default_factory=list,
+        description="Danh sách các document_id thực sự được viện dẫn trong câu trả lời"
+    )
+
+
+def _decompose_query(query: str) -> list[str]:
+    """Split explicit multi-situation questions without splitting one request.
+
+    We only split when the user supplies numbered/semicolon-separated items or
+    names two different vehicle classes.  This avoids turning a normal query
+    such as "phạt bao nhiêu và có bị trừ điểm không?" into unrelated searches.
+    """
+    text = clean_query(query)
+    if not text:
+        return []
+    numbered = [part.strip(" -") for part in re.split(r"(?=\b\d+[.)]\s+)", text) if part.strip()]
+    if len(numbered) > 1 and all(len(part) >= 12 for part in numbered):
+        return numbered
+    explicit = [part.strip(" -") for part in re.split(r"\s*;\s*|\n+", text) if part.strip()]
+    if len(explicit) > 1 and all(len(part) >= 12 for part in explicit):
+        return explicit
+
+    routing = normalize_for_routing(text)
+    vehicle_markers = ("xe may", "o to", "xe o to", "xe mo to", "xe gan may")
+    present = [marker for marker in vehicle_markers if marker in routing]
+    if "xe may" in routing and "o to" in routing:
+        match = re.search(r"\s+(?:va|;|,)?\s*(?=o to\b|xe o to\b)", routing)
+        if match:
+            left = text[:match.start()].strip(" ,;-")
+            right = text[match.end():].strip(" ,;-")
+            if len(left) >= 12 and len(right) >= 12:
+                return [left, right]
+    return []
+
+
+def _reduce_results(
+    left: list[dict[str, Any]] | None,
+    right: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    """Accumulates fan-out agent outputs like operator.add, but resets to empty
+    when an empty list is sent (e.g. at the start of a new turn)."""
+    if right is None:
+        return left or []
+    if len(right) == 0:
+        return []
+    return operator.add(left or [], right)
+
+
+class RouterState(TypedDict, total=False):
+    query: str
+    original_query: str
+    user_query: str
+    routing_query: str
+    k: int
+    classifications: list[dict[str, str]]
+    classification: dict[str, str]
+    results: Annotated[list[dict[str, Any]], _reduce_results]
+    messages: Annotated[list[dict[str, str]], operator.add]
+    thread_id: str | None
+    final_answer: str
+    final_citations: list[dict[str, Any]]
+    status: str
+    guardrail_status: str
+    guardrail_warnings: list[str]
+
+
+def _rewrite_followup_query(
+    query: str,
+    messages: list[dict[str, str]] | None = None,
+) -> str:
+    """Add the previous user question to an underspecified follow-up.
+
+    This is deliberately deterministic: it avoids an extra LLM call and only
+    rewrites short/context-dependent turns. Explicit legal questions remain
+    unchanged, so the three domain agents keep their normal retrieval path.
+    """
+    current = clean_query(query)
+    if not current or not messages:
+        return current
+    previous_user = next(
+        (
+            clean_query(str(item.get("content", "")))
+            for item in reversed(messages)
+            if isinstance(item, dict)
+            and item.get("role") == "user"
+            and clean_query(str(item.get("content", "")))
+        ),
+        "",
+    )
+    if not previous_user or previous_user.casefold() == current.casefold():
+        return current
+
+    routing = normalize_for_routing(current)
+    followup_markers = (
+        "cu the hon", "chi tiet hon", "cu the", "dieu kien nao",
+        "truong hop nao", "con ", "vay ", "the con", "nhu vay",
+        "doi voi truong hop", "co duoc khong",
+    )
+    is_short = len(current.split()) <= 12 or len(current) <= 90
+    is_contextual = any(marker in routing for marker in followup_markers)
+    explicit_legal_subject = (
+        "cuong che", "quyet dinh hanh chinh", "kiem tra thue", "hoan thue",
+        "hoa don", "ma so thue", "mien thue", "giam thue", "thu nhap",
+        "doi tuong khong chiu thue", "bao cao tai chinh", "nop thue",
+        "xe may", "o to", "den do", "nong do con", "nguoi lao dong",
+        "hop dong", "tien luong", "nghi phep",
+    )
+    if any(term in routing for term in explicit_legal_subject):
+        return current
+    if not (is_short and is_contextual):
+        return current
+    return clean_query(f"{previous_user} {current}")
+
+
+def _normalize_classifications(items: list[Classification]) -> list[dict[str, Any]]:
+    seen: set[str] = set()
+    result: list[dict[str, Any]] = []
+    for item in items:
+        if item.domain not in LEGAL_DOMAINS or item.domain in seen:
+            continue
+        query = clean_query(item.query)
+        if not query:
+            continue
+        seen.add(item.domain)
+        sub_qs = [clean_query(sq) for sq in getattr(item, "sub_queries", []) if clean_query(sq)]
+        if not sub_qs:
+            sub_qs = _decompose_query(query)
+        entry: dict[str, Any] = {"domain": item.domain, "query": query}
+        if sub_qs:
+            entry["sub_queries"] = sub_qs
+        result.append(entry)
+    return result
+
+
+def _keyword_classify(
+    routing_query: str,
+    original_query: str | None = None,
+) -> list[dict[str, str]]:
+    """Classify only from routing_query; return sub-questions from original_query."""
+    text = routing_query
+    original = clean_query(original_query if original_query is not None else routing_query)
+    keywords: dict[str, tuple[str, ...]] = {
+        "traffic": (
+            "giao thong", "duong bo", "xe may", "o to", "xe o to",
+            "nong do con", "toc do", "bien bao", "bang lai", "giay phep lai xe",
+                "tai nan", "phat nguoi", "cho muon xe", "phat giao thong", "vi pham giao thong",
+            "via he", "un tac", "mu bao hiem", "nguoi ngoi sau",
+            "cao toc", "dung do", "cong benh vien", "roi khoi hien truong",
+        ),
+        "labor": (
+            "lao dong", "nguoi lao dong", "hop dong lao dong", "tien luong",
+            "tien cong", "luong", "nghi phep", "nghi hang nam", "thu viec",
+            "sa thai", "cham dut hop dong", "gio lam viec", "lam them",
+            "nhan vien", "bang tot nghiep", "giu bang", "cham tra luong",
+            "cat giam nhan su", "hop dong dao tao", "chi phi dao tao",
+            "nghi viec", "bao hiem xa hoi",
+            "ngay le", "ngay tet", "thai san", "dat coc", "nguoi lao dong nuoc ngoai",
+            "thu viec toi da", "ket hon", "pha san", "co phieu thay vi tien mat",
+        ),
+        "accounting": (
+            "thue", "ke toan", "hoa don", "vat", "gtgt",
+            "thu nhap ca nhan", "khau tru", "quyet toan thue", "doanh nghiep",
+            "mien thue", "nguoi phu thuoc", "giam tru gia canh", "sinh vien",
+            "shopee", "tiktok shop", "freelancer", "cong ty nuoc ngoai",
+            "bang usd", "hoa don dau vao", "chi phi duoc tru",
+            "cham nop", "tien cham nop", "ban o to", "gia tri gia tang",
+            "khau tru toan bo", "lao dong nuoc ngoai",
+            "phu cap an trua", "xang xe", "nhieu cua hang", "thue suat", "co phieu",
+        ),
+    }
+    matched = [
+        domain for domain, terms in keywords.items()
+        if any(term in text for term in terms)
+    ]
+    # "lÆ°Æ¡ng thÃ¡ng 13" is a tax question even though it contains the
+    # generic word "lÆ°Æ¡ng". Keep labor only when a labor-specific signal is
+    # also present, so the fallback does not fan out into an irrelevant agent.
+    labor_strong_terms = (
+        "lao dong", "nguoi lao dong", "hop dong", "lam them",
+        "nghi phep", "thu viec", "sa thai", "cham dut", "bao hiem xa hoi",
+        "dao tao", "nghi viec", "ngay le", "ngay tet", "thai san",
+        "dat coc", "ket hon", "pha san", "giao hang", "bang co phieu",
+        "co phieu thay vi tien mat",
+    )
+    if "labor" in matched and "accounting" in matched:
+        if not any(term in text for term in labor_strong_terms):
+            matched.remove("labor")
+    # Vehicle words also occur in tax questions (sale or business use of a
+    # car). Keep those queries in the tax domain unless they contain a
+    # traffic-specific offence or road-safety signal.
+    if "traffic" in matched and "accounting" in matched:
+        traffic_specific_terms = (
+            "giao thong", "duong bo", "xe may", "nong do con", "toc do",
+            "bien bao", "bang lai", "giay phep lai xe", "tai nan",
+            "phat nguoi", "vi pham giao thong", "via he", "mu bao hiem",
+            "nguoi ngoi sau", "un tac",
+        )
+        if not any(term in text for term in traffic_specific_terms):
+            matched.remove("traffic")
+    return [
+        {
+            "domain": domain,
+            "query": f"{original} (t\u1eadp trung v\u00e0o l\u0129nh v\u1ef1c {DOMAIN_LABELS[domain]})",
+        }
+        for domain in matched
+    ]
+
+
+def _classify_with_llm(
+    query: str,
+    settings: Settings,
+    messages: list[dict[str, str]] | None = None,
+) -> list[dict[str, str]]:
+    """Classify using the original cleaned Vietnamese query, never routing_query."""
+    provider = str(getattr(settings, "llm_provider", "openai")).strip().casefold()
+    key_name = "gemini_api_key" if provider == "gemini" else "openai_api_key"
+    if not getattr(settings, key_name, None):
+        return []
+    try:
+        model = build_structured_model(settings, ClassificationPayload)
+        history_context = ""
+        if messages:
+            recent = messages[-4:]
+            formatted = "\n".join(
+                f"{m.get('role', 'user')}: {m.get('content', '')}"
+                for m in recent if isinstance(m, dict)
+            )
+            if formatted:
+                history_context = f"L\u1ecbch s\u1eed h\u1ed9i tho\u1ea1i:\n{formatted}\n\n"
+        prompt = (
+            "B\u1ea1n l\u00e0 b\u1ed9 ph\u00e2n lo\u1ea1i truy v\u1ea5n ph\u00e1p lu\u1eadt Vi\u1ec7t Nam. "
+            "Ch\u1ec9 ch\u1ecdn domain trong danh s\u00e1ch: traffic, labor, accounting. "
+            "T\u1ea1o sub-question ti\u1ebfng Vi\u1ec7t cho t\u1eebng domain. "
+            "N\u1ebfu ng\u01b0\u1eddi d\u00f9ng h\u1ecfi c\u00e2u ti\u1ebfp n\u1ed1i li\u00ean quan \u0111\u1ebfn ch\u1ee7 \u0111\u1ec1 \u1edf l\u01b0\u1ee3t tr\u01b0\u1edbc, h\u00e3y s\u1eed d\u1ee5ng ng\u1eef c\u1ea3nh l\u1ecbch s\u1eed h\u1ed9i tho\u1ea1i \u0111\u1ec3 x\u00e1c \u0111\u1ecbnh \u0111\u00fang domain. "
+            "N\u1ebfu truy v\u1ea5n kh\u00f4ng \u0111\u1ee7 r\u00f5, tr\u1ea3 classifications r\u1ed7ng. "
+            "Kh\u00f4ng \u0111\u01b0\u1ee3c t\u1ea1o domain kh\u00e1c.\n\n"
+            f"{history_context}"
+            f"Query: {query}"
+        )
+        payload = model.invoke(prompt)
+        return _normalize_classifications(payload.classifications)
+    except Exception as exc:
+        logger.warning("Router classifier provider failed; using keyword fallback: %s", exc)
+        return []
+
+
+def _normalize_raw_classifications(items: list[dict[str, str]]) -> list[dict[str, str]]:
+    models: list[Classification] = []
+    for item in items:
+        try:
+            models.append(Classification.model_validate(item))
+        except Exception:
+            continue
+    return _normalize_classifications(models)
+
+
+def _expand_classifications(items: list[dict[str, Any]], original_query: str) -> list[dict[str, Any]]:
+    routing_query = normalize_for_routing(original_query)
+    expanded_items: list[dict[str, Any]] = []
+    for item in items:
+        expanded = expand_query_for_retrieval(original_query, routing_query, item["domain"])
+        if expanded == original_query and clean_query(item["query"]) != original_query:
+            expanded = clean_query(item["query"])
+        sub_qs = item.get("sub_queries", [])
+        if not sub_qs:
+            sub_qs = _decompose_query(original_query)
+        entry: dict[str, Any] = {"domain": item["domain"], "query": expanded}
+        if sub_qs:
+            entry["sub_queries"] = sub_qs
+        expanded_items.append(entry)
+    return expanded_items
+
+
+def _classify_query(
+    query: str,
+    settings: Settings,
+    messages: list[dict[str, str]] | None = None,
+) -> list[dict[str, str]]:
+    original_query = clean_query(query)
+    try:
+        raw_items = _classify_with_llm(original_query, settings, messages=messages)
+    except TypeError:
+        raw_items = _classify_with_llm(original_query, settings)
+    llm_items = _normalize_raw_classifications(raw_items)
+    if llm_items:
+        return _expand_classifications(llm_items, original_query)
+    routing_query = normalize_for_routing(original_query)
+    return _expand_classifications(_keyword_classify(routing_query, original_query), original_query)
+
+
+def classify_query(state: RouterState) -> dict[str, Any]:
+    original_query = clean_query(state.get("original_query") or state.get("query", ""))
+    contextual_query = clean_query(state.get("query") or original_query)
+    routing_query = normalize_for_routing(contextual_query)
+    messages = state.get("messages", [])
+    # Input Intent Guardrail: Chan chao hoi & cau hoi ngoai le (0d API)
+    intent_result = get_intent_guardrail().check_intent(original_query)
+    if intent_result.intent != "in_scope":
+        resp_msg = intent_result.response or CLARIFICATION_ANSWER
+        status_val = intent_result.intent
+        return {
+            "original_query": original_query,
+            "routing_query": routing_query,
+            "classifications": [],
+            "final_answer": resp_msg,
+            "final_citations": [],
+            "status": status_val,
+            "guardrail_status": status_val,
+            "guardrail_warnings": [],
+            "results": [],
+            "messages": [
+                {"role": "user", "content": original_query},
+                {"role": "assistant", "content": resp_msg},
+            ],
+        }
+
+    classifications = _classify_query(contextual_query, get_settings(), messages=messages)
+    if not classifications:
+        return {
+            "original_query": original_query,
+            "routing_query": routing_query,
+            "classifications": [],
+            "final_answer": CLARIFICATION_ANSWER,
+            "final_citations": [],
+            "status": "needs_clarification",
+            "guardrail_status": "needs_clarification",
+            "guardrail_warnings": [],
+            "results": [],
+            "messages": [
+                {"role": "user", "content": original_query},
+                {"role": "assistant", "content": CLARIFICATION_ANSWER},
+            ],
+        }
+    return {
+        "original_query": original_query,
+        "routing_query": routing_query,
+        "classifications": classifications,
+        "status": "routing",
+        "results": [],
+    }
+
+
+def route_to_agents(state: RouterState) -> list[Send] | str:
+    classifications = state.get("classifications", [])
+    if not classifications:
+        return END
+    sends: list[Send] = []
+    for classification in classifications:
+        domain = classification["domain"]
+        node = {
+            "traffic": "query_traffic",
+            "labor": "query_labor",
+            "accounting": "query_accounting",
+        }.get(domain)
+        if node is None:
+            continue
+        sends.append(Send(node, {
+            "query": clean_query(classification["query"]),
+            "original_query": clean_query(classification["query"]),
+            "k": state.get("k", 5),
+            "classification": classification,
+            "sub_queries": classification.get("sub_queries", []),
+        }))
+    return sends or END
+
+
+def _run_agent(
+    state: RouterState,
+    public_domain: str,
+    agent_runner: Any,
+) -> dict[str, Any]:
+    classification = state.get("classification", {})
+    query = clean_query(state.get("query") or classification.get("query", ""))
+    k = state.get("k", 5)
+    sub_queries = state.get("sub_queries") or classification.get("sub_queries", [])
+    try:
+        if "sub_queries" in inspect.signature(agent_runner).parameters:
+            result = agent_runner(query, k, sub_queries=sub_queries)
+        else:
+            result = agent_runner(query, k)
+        output = AgentOutput(
+            domain=public_domain,
+            query=clean_query(str(result.get("query", query))),
+            answer=str(result.get("answer", INSUFFICIENT_EVIDENCE)),
+            status=str(result.get("status", "insufficient_evidence")),
+            citations=list(result.get("citations", [])),
+        )
+    except Exception:
+        logger.exception("Router agent failed: %s", public_domain)
+        output = AgentOutput(
+            domain=public_domain,
+            query=query,
+            answer="Chưa thể xử lý nhánh pháp luật này.",
+            status="provider_error",
+            citations=[],
+        )
+    return {"results": [output.model_dump()]}
+
+def query_traffic(state: RouterState) -> dict[str, Any]:
+    return _run_agent(state, "traffic", run_traffic_agent)
+
+def query_labor(state: RouterState) -> dict[str, Any]:
+    return _run_agent(state, "labor", run_labor_agent)
+
+def query_accounting(state: RouterState) -> dict[str, Any]:
+    return _run_agent(state, "accounting", run_accounting_agent)
+
+
+def _deduplicate_citations(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    citations: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for result in results:
+        for citation in result.get("citations", []):
+            document_id = citation.get("document_id")
+            key = str(document_id) if document_id is not None else repr(citation)
+            if key not in seen:
+                seen.add(key)
+                citations.append(citation)
+    return citations
+
+
+SYNTHESIZER_SYSTEM_PROMPT = """Bạn là Chuyên gia Tổng hợp Pháp lý Cao cấp của Trust Agent (Việt Nam).
+Nhiệm vụ của bạn là tổng hợp các kết quả tra cứu độc lập từ các nhánh chuyên môn (Giao thông, Lao động, Thuế/Kế toán) thành một câu trả lời pháp lý thống nhất, chuẩn xác, mạch lạc và có giá trị tham vấn thực tế cao.
+
+NGUYÊN TẮC CỐT LÕI:
+1. TRUNG THỰC VỚI CĂN CỨ PHÁP LÝ (GROUNDEDNESS):
+   - Chỉ sử dụng các điều luật, quy định, số hiệu văn bản (Nghị định, Luật, Thông tư, Điều, Khoản) đã xuất hiện trong kết quả tra cứu của từng nhánh.
+   - TUYỆT ĐỐI KHÔNG tự bịa đặt, suy đoán thêm số hiệu văn bản, điều khoản, mức phạt, mức bồi thường hoặc thời hạn ngoài dữ liệu được cung cấp.
+2. TỔNG HỢP VÀ LIÊN KẾT ĐA NGÀNH:
+   - Phân tích mối liên hệ, sự tương tác hoặc ràng buộc pháp lý giữa các lĩnh vực đối với tình huống của người dùng.
+   - Trình bày mạch lạc, liên kết chặt chẽ các vấn đề thay vì sao chép rời rạc.
+3. NGUYÊN TẮC XỬ LÝ NHÁNH THIẾU CHỨNG CỨ:
+   - Nếu một nhánh chuyên môn có trạng thái "insufficient_evidence" hoặc câu trả lời chưa đủ căn cứ, nêu rõ phạm vi chưa đủ dữ liệu cho nhánh đó, không tự suy diễn thay thế.
+4. CẤU TRÚC BÀI TỔNG HỢP CHUẨN:
+   - Tóm tắt kết luận trực diện vào vấn đề.
+   - Căn cứ & Phân tích chi tiết theo từng khía cạnh pháp luật, dẫn chiếu chính xác Điều, Khoản, Văn bản.
+   - Đánh giá tổng hợp / Khuyến nghị thực thi.
+5. VIỆN DẪN DOCUMENT ID:
+   - Liệt kê chính xác danh sách cited_document_ids của những tài liệu pháp lý thực tế đã được viện dẫn trong câu trả lời tổng hợp."""
+
+
+def _build_synthesizer_user_prompt(
+    query: str,
+    results: list[dict[str, Any]],
+) -> str:
+    domain_sections = []
+    for item in results:
+        domain = item.get("domain", "chung")
+        domain_label = DOMAIN_LABELS.get(domain, domain)
+        status = item.get("status", "unknown")
+        answer = item.get("answer", "")
+        citations = item.get("citations", [])
+
+        cit_lines = []
+        for c in citations:
+            if isinstance(c, dict):
+                doc_id = c.get("document_id") or c.get("id") or ""
+                ten = c.get("ten_van_ban", "")
+                so_hieu = c.get("so_hieu", "")
+                dieu = c.get("dieu", "")
+                khoan = c.get("khoan", "")
+                cit_lines.append(f"  + [{doc_id}] {ten} - Số hiệu: {so_hieu} - {dieu} {khoan}".strip())
+        cit_text = "\n".join(cit_lines) if cit_lines else "  + Không có trích dẫn cụ thể."
+        domain_sections.append(
+            f"=== LĨNH VỰC: {domain_label.upper()} (Trạng thái: {status}) ===\n"
+            f"Nội dung tra cứu:\n{answer}\n"
+            f"Căn cứ pháp lý sẵn có:\n{cit_text}"
+        )
+    context_str = "\n\n".join(domain_sections)
+    return (
+        f"Câu hỏi của người dùng:\n{query}\n\n"
+        f"Kết quả tra cứu từ các nhánh chuyên môn:\n"
+        f"{context_str}\n\n"
+        f"Chỉ trả lời câu hỏi hiện tại; không suy diễn từ câu hỏi trước hoặc thêm nội dung không được hỏi. "
+        f"Hãy tổng hợp thành câu trả lời thống nhất, mạch lạc, chuẩn xác theo đúng cấu trúc và nguyên tắc đã quy định."
+    )
+
+
+def _fallback_synthesize(
+    query: str,
+    verified_results: list[dict[str, Any]],
+) -> str:
+    if len(verified_results) == 1:
+        return verified_results[0].get("answer", INSUFFICIENT_EVIDENCE)
+    sections = []
+    for item in verified_results:
+        domain = item.get("domain", "")
+        domain_label = DOMAIN_LABELS.get(domain, domain).capitalize()
+        answer = item.get("answer", "").strip()
+        sections.append(f"### Lĩnh vực {domain_label}\n{answer}")
+    return "\n\n".join(sections)
+
+
+def _synthesize_with_llm(
+    query: str,
+    verified_results: list[dict[str, Any]],
+    settings: Settings,
+) -> str:
+    if not getattr(settings, "openai_api_key", None):
+        return _fallback_synthesize(query, verified_results)
+    try:
+        from langchain_openai import ChatOpenAI
+
+        model = ChatOpenAI(
+            model=settings.openai_model,
+            api_key=settings.openai_api_key,
+            temperature=0,
+        ).with_structured_output(SynthesizerPayload)
+        user_prompt = _build_synthesizer_user_prompt(query, verified_results)
+        payload = model.invoke([
+            {"role": "system", "content": SYNTHESIZER_SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ])
+        if hasattr(payload, "answer") and payload.answer:
+            return payload.answer.strip()
+        if isinstance(payload, str) and payload.strip():
+            return payload.strip()
+        if isinstance(payload, dict) and payload.get("answer"):
+            return str(payload["answer"]).strip()
+        return _fallback_synthesize(query, verified_results)
+    except Exception as exc:
+        logger.warning("Synthesizer LLM failed; using fallback formatting: %s", exc)
+        return _fallback_synthesize(query, verified_results)
+
+
+def synthesize_results(state: RouterState) -> dict[str, Any]:
+    query = state.get("original_query") or state.get("query", "")
+    results = state.get("results", [])
+    verified = [result for result in results if result.get("status") == "verified"]
+    if not verified:
+        clarification_results = [
+            result
+            for result in results
+            if result.get("status") == "needs_clarification"
+            and str(result.get("answer", "")).strip()
+        ]
+        if clarification_results:
+            clarification_answers: list[str] = []
+            seen_answers: set[str] = set()
+            for result in clarification_results:
+                answer = str(result["answer"]).strip()
+                if answer not in seen_answers:
+                    seen_answers.add(answer)
+                    clarification_answers.append(answer)
+            final_answer = "\n".join(clarification_answers)
+            turn_messages = [
+                {"role": "user", "content": query},
+                {"role": "assistant", "content": final_answer},
+            ]
+            return {
+                "final_answer": final_answer,
+                "final_citations": [],
+                "status": "needs_clarification",
+                "guardrail_status": "needs_clarification",
+                "guardrail_warnings": [],
+                "messages": turn_messages,
+            }
+
+        turn_messages = [
+            {"role": "user", "content": query},
+            {"role": "assistant", "content": INSUFFICIENT_EVIDENCE},
+        ]
+        return {
+            "final_answer": INSUFFICIENT_EVIDENCE,
+            "final_citations": [],
+            "status": "insufficient_evidence",
+            "guardrail_status": "insufficient_evidence",
+            "guardrail_warnings": [],
+            "messages": turn_messages,
+        }
+    if len(verified) == 1:
+        raw_answer = verified[0].get("answer", INSUFFICIENT_EVIDENCE)
+    else:
+        raw_answer = _synthesize_with_llm(query, verified, get_settings())
+
+    combined_citations = _deduplicate_citations(verified)
+    guardrail_result = verify_citations_guardrail(
+        answer=raw_answer,
+        evidence=combined_citations,
+    )
+
+    if guardrail_result.status != "verified":
+        final_answer = guardrail_result.verified_answer
+        final_status = guardrail_result.status
+        final_citations = []
+        guardrail_warnings = guardrail_result.warnings
+    else:
+        final_answer = raw_answer
+        final_status = "verified"
+        final_citations = combined_citations
+        guardrail_warnings = []
+
+    turn_messages = [
+        {"role": "user", "content": query},
+        {"role": "assistant", "content": final_answer},
+    ]
+    return {
+        "final_answer": final_answer,
+        "final_citations": final_citations,
+        "status": final_status,
+        "guardrail_status": final_status,
+        "guardrail_warnings": guardrail_warnings,
+        "messages": turn_messages,
+    }
+
+
+def build_router_graph(checkpointer: Any = None):
+    graph = StateGraph(RouterState)
+    graph.add_node("classify_query", classify_query)
+    graph.add_node("query_traffic", query_traffic)
+    graph.add_node("query_labor", query_labor)
+    graph.add_node("query_accounting", query_accounting)
+    graph.add_node("synthesize_results", synthesize_results)
+    graph.add_edge(START, "classify_query")
+    graph.add_conditional_edges("classify_query", route_to_agents)
+    graph.add_edge("query_traffic", "synthesize_results")
+    graph.add_edge("query_labor", "synthesize_results")
+    graph.add_edge("query_accounting", "synthesize_results")
+    graph.add_edge("synthesize_results", END)
+    return graph.compile(checkpointer=checkpointer or _default_checkpointer)
+
+
+def run_router(query: str, k: int = 5, thread_id: str | None = None, messages: list[dict[str, str]] | None = None) -> dict[str, Any]:
+    effective_thread_id = thread_id or str(uuid.uuid4())
+    original_query = clean_query(query)
+    config = {"configurable": {"thread_id": effective_thread_id}}
+    graph = build_router_graph()
+    existing = graph.get_state(config)
+    history = list(existing.values.get("messages", [])) if existing.values else []
+    if not history:
+        history = list(messages or [])
+    contextual_query = _rewrite_followup_query(original_query, history)
+    overview_domain = detect_overview_domain(contextual_query)
+    if overview_domain:
+        settings = get_settings()
+        config = settings.domain_config(overview_domain)
+        overview = build_domain_overview(settings, config)
+        return {
+            "query": original_query,
+            "classifications": [{"domain": overview_domain, "query": contextual_query, "intent": "overview"}],
+            "results": [],
+            "answer": overview["answer"],
+            "citations": [],
+            "status": overview["status"],
+            "guardrail_status": overview["status"],
+            "guardrail_warnings": [],
+            "overview": overview,
+            "thread_id": effective_thread_id,
+        }
+    state: RouterState = {
+        "query": contextual_query,
+        "original_query": original_query,
+        "user_query": original_query,
+        "routing_query": normalize_for_routing(original_query),
+        "k": k,
+        "classifications": [],
+        "results": [],
+        "thread_id": effective_thread_id,
+        "messages": messages or [],
+        "final_answer": "",
+        "final_citations": [],
+        "status": "routing",
+        "guardrail_status": "",
+        "guardrail_warnings": [],
+    }
+    if history:
+        state["messages"] = []
+    output = graph.invoke(state, config=config)
+    final_status = output.get("status", "insufficient_evidence")
+    return {
+        "query": output.get("original_query", original_query),
+        "classifications": output.get("classifications", []),
+        "results": output.get("results", []),
+        "answer": output.get("final_answer", INSUFFICIENT_EVIDENCE),
+        "citations": output.get("final_citations", []),
+        "status": final_status,
+        "guardrail_status": output.get("guardrail_status") or final_status,
+        "guardrail_warnings": output.get("guardrail_warnings", []),
+        "thread_id": effective_thread_id,
+    }
+
+
+

@@ -1,0 +1,18 @@
+﻿services:
+  trust-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      PORT: "8000"
+    ports:
+      - "8000:8000"
+    volumes:
+      - trust_agent_chroma:/app/data/chroma
+    command: sh -c "python scripts/ensure_corpora.py && uvicorn app.main:app --host 0.0.0.0 --port $${PORT:-8000}"
+    restart: unless-stopped
+
+volumes:
+  trust_agent_chroma:
