@@ -9,7 +9,7 @@ Tài liệu này hướng dẫn chủ backend/production hoàn tất **đăng k�
 - Identity Registry cấp một `agentId` dạng NFT cho agent.
 - `agentURI` trỏ đến JSON công khai mô tả agent và các service.
 - Metadata công bố web app và endpoint trả phí x402.
-- Trust Agent đã có registration trên Base Sepolia: agent ID `10773`. Registration đó vẫn được giữ trong metadata; đăng ký Fuji tạo thêm một entry riêng.
+- Trust Agent có registration Base Sepolia agent ID `10773` và Avalanche Fuji agent ID `355` (tx `0x8b9b1a0f908151f9d07838191a2f2a61ec506bc41809ea1a7f58c38373438692`). Cả hai registration cùng được khai báo trong metadata.
 - Fuji Identity Registry: `0x8004A818BFB912233c491871b3d84c89A494BD9e`, chain ID `43113`.
 
 ERC-8004 Reputation/Validation registry và cơ chế ghi điểm reputation tự động chưa được triển khai trong luồng này. Không diễn giải việc có Identity NFT là đã được đánh giá uy tín on-chain.
@@ -64,6 +64,8 @@ ERC8004_CHAIN_ID=43113
 ERC8004_AGENT_URI=https://trust-agent-eight.vercel.app/agent-registration.json
 ERC8004_METADATA_FILE=../web/public/agent-registration.json
 ```
+
+Nếu `.env` server đã có `ERC8004_METADATA_FILE` trỏ tới `app/agent-registration.example.json`, hãy đổi nó thành `../web/public/agent-registration.json`. Giá trị trong `.env` ghi đè giá trị mặc định/mẫu.
 
 `ERC8004_PRIVATE_KEY` chỉ dùng để ký giao dịch đăng ký; script không in key. Ví phải có Fuji AVAX. Script sẽ kiểm tra network, địa chỉ registry, bytecode contract, metadata HTTPS, và số dư gas trước khi gửi.
 
@@ -145,7 +147,7 @@ Kiểm tra thêm bằng tay:
 
 - [ ] `GET https://trust-agent-eight.vercel.app/agent-registration.json` truy cập công khai bằng HTTPS.
 - [ ] Metadata có service web Vercel và x402 proxy `/api/paid/ask` chính xác.
-- [ ] Registration trên Fuji được xác nhận; có `agentId` và transaction hash.
+- [x] Registration trên Fuji được xác nhận: agent ID `355`, tx `0x8b9b1a0f908151f9d07838191a2f2a61ec506bc41809ea1a7f58c38373438692`.
 - [ ] Metadata public chứa entry `eip155:43113` mới.
 - [ ] `python scripts/verify_erc8004.py` xác nhận `ownerOf` và `tokenURI` khớp.
 
