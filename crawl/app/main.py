@@ -19,7 +19,7 @@ from .config import get_settings
 from .domains import CorpusNotFoundError, UnknownDomainError
 from .intent_guardrail import get_intent_guardrail
 from .retrieval import get_hybrid_retriever
-from .router import run_router
+from .router import preflight_query, run_router
 from .query_normalization import clean_query
 from .overview import build_domain_overview, detect_overview_domain
 from .vectorstore import get_vectorstore, ingest_domain, ingest_labor, search_domain, search_labor
@@ -547,8 +547,8 @@ def paid_router_ask(request: SearchRequest) -> dict[str, Any]:
 def validate_paid_router(request: SearchRequest) -> dict[str, Any]:
     """Validate a paid query before the browser requests an x402 payment challenge."""
     cleaned = clean_request(request)
-    intent_result = get_intent_guardrail().check_intent(cleaned.query)
-    if intent_result.intent != "in_scope":
+    preflight = preflight_query(cleaned.query)
+    if preflight is not None:
         response = _run_router_and_store_conversation(cleaned)
         return {
             "allowed": False,
@@ -563,8 +563,8 @@ def validate_paid_router(request: SearchRequest) -> dict[str, Any]:
     return {
         "allowed": True,
         "query": cleaned.query,
-        "status": intent_result.intent,
-        "answer": intent_result.response,
+        "status": "in_scope",
+        "answer": None,
     }
 
 

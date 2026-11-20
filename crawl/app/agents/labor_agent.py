@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 from ..config import get_settings
-from ..clarification import clarification_for_query
+from ..clarification import build_clarification_decision
 from ..query_normalization import clean_query, expand_query_for_retrieval, normalize_for_routing
 from ..retrieval import get_hybrid_retriever
 from .base import (
@@ -35,6 +35,7 @@ Nếu không đủ căn cứ, phải trả đúng: "Chưa đủ căn cứ từ d
 Phân biệt "Quy định pháp luật" và "Suy luận theo tình huống" nếu có suy luận.
 Chỉ dùng cited_document_ids xuất hiện trong evidence của lượt chạy này.
 Với người lao động đồng thời có nhiều hợp đồng: không nói mỗi công ty đều đóng toàn bộ BHXH/BHYT/BHTN. Phải phân biệt hợp đồng làm căn cứ đóng BHXH, BHYT, BHTN và bảo hiểm tai nạn lao động, bệnh nghề nghiệp theo đúng evidence.
+Với câu hỏi về lương thử việc, phải kiểm tra Điều 26: lương thử việc do hai bên thỏa thuận nhưng ít nhất bằng 85% mức lương của công việc đó. Không thay thế quy tắc 85% bằng mức lương tối thiểu vùng nếu evidence không nói như vậy.
 """
 SPEC = DomainAgentSpec(LABOR_DOMAIN, "Labor Agent", AGENT_POLICY)
 
@@ -85,9 +86,9 @@ def _reject_unsupported_multiple_contract_claim(query: str, result: dict[str, An
 def run_labor_agent(query: str, k: int = 5, model: Any | None = None, max_steps: int = MAX_STEPS, sub_queries: list[str] | None = None) -> dict[str, Any]:
     settings = get_settings()
     cleaned_query = clean_query(query)
-    clarification = clarification_for_query(cleaned_query, LABOR_DOMAIN)
-    if clarification:
-        return {"query": cleaned_query, "answer": clarification, "status": "needs_clarification", "citations": []}
+    clarification = build_clarification_decision(cleaned_query, LABOR_DOMAIN)
+    if clarification.action == "clarify":
+        return {"query": cleaned_query, "answer": clarification.question, "status": "needs_clarification", "citations": [], "clarification_slots": clarification.missing_slots}
     result = run_domain_agent(
         cleaned_query, k, settings, SPEC, search_labor_law, get_labor_document, model=model, max_steps=max_steps, sub_queries=sub_queries
     )

@@ -37,16 +37,21 @@ class QueryPlan:
     metadata_filter: dict[str, Any]
 
 
+def _contains_phrase(value: str, phrase: str) -> bool:
+    """Match a normalized phrase without substring collisions (e.g. 'o to' in 'cao toc')."""
+    return re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", value) is not None
+
+
 def _vehicle_group(routing_query: str) -> str | None:
-    if "xe may chuyen dung" in routing_query or "may keo" in routing_query:
+    if _contains_phrase(routing_query, "xe may chuyen dung") or _contains_phrase(routing_query, "may keo"):
         return "specialized_vehicle"
-    if any(term in routing_query for term in ("o to", "oto", "xe hoi", "xe con")):
+    if any(_contains_phrase(routing_query, term) for term in ("o to", "oto", "xe hoi", "xe con")):
         return "car"
-    if any(term in routing_query for term in ("xe may", "mo to", "xe gan may", "tay ga")):
+    if any(_contains_phrase(routing_query, term) for term in ("xe may", "mo to", "xe gan may", "tay ga")):
         return "motorbike"
-    if any(term in routing_query for term in ("nguoi di bo", "di bo")):
+    if any(_contains_phrase(routing_query, term) for term in ("nguoi di bo", "di bo")):
         return "pedestrian"
-    if any(term in routing_query for term in ("xe dap", "xe dap may", "xe tho so")):
+    if any(_contains_phrase(routing_query, term) for term in ("xe dap", "xe dap may", "xe tho so")):
         return "bicycle"
     return None
 
@@ -55,16 +60,16 @@ def _vehicle_groups(routing_query: str) -> set[str]:
     # Check the most specific expression first. Otherwise "xe may chuyen
     # dung" also matches the generic "xe may" branch and disables filtering.
     groups: set[str] = set()
-    specialized = "xe may chuyen dung" in routing_query or "may keo" in routing_query
+    specialized = _contains_phrase(routing_query, "xe may chuyen dung") or _contains_phrase(routing_query, "may keo")
     if specialized:
         groups.add("specialized_vehicle")
-    if not specialized and any(term in routing_query for term in ("o to", "oto", "xe hoi", "xe con")):
+    if not specialized and any(_contains_phrase(routing_query, term) for term in ("o to", "oto", "xe hoi", "xe con")):
         groups.add("car")
-    if not specialized and any(term in routing_query for term in ("xe may", "mo to", "xe gan may", "tay ga")):
+    if not specialized and any(_contains_phrase(routing_query, term) for term in ("xe may", "mo to", "xe gan may", "tay ga")):
         groups.add("motorbike")
-    if any(term in routing_query for term in ("nguoi di bo", "di bo")):
+    if any(_contains_phrase(routing_query, term) for term in ("nguoi di bo", "di bo")):
         groups.add("pedestrian")
-    if any(term in routing_query for term in ("xe dap", "xe dap may", "xe tho so")):
+    if any(_contains_phrase(routing_query, term) for term in ("xe dap", "xe dap may", "xe tho so")):
         groups.add("bicycle")
     return groups
 
@@ -123,6 +128,10 @@ def build_query_plan(query: str, domain: str) -> QueryPlan:
             # outranking the actual red-light provision.
             if "vuot den do" in routing_query or "den tin hieu" in routing_query:
                 metadata_filter["khoan"] = "Khoản 9" if group == "car" else "Khoản 7"
+            elif "cao toc" in routing_query and group == "motorbike":
+                metadata_filter["khoan"] = "Khoản 7"
+            elif "speed" in _traffic_topics(routing_query):
+                metadata_filter["khoan"] = "Khoản 5" if group == "car" else "Khoản 4"
             elif "mu bao hiem" in routing_query and group == "motorbike":
                 metadata_filter["khoan"] = "Khoản 2"
             topics = _traffic_topics(routing_query)
@@ -133,7 +142,18 @@ def build_query_plan(query: str, domain: str) -> QueryPlan:
     # all three because the answer may require the maximum duration, contract
     # conditions, and the employer's notification duty together.
     if domain == "labor" and not dieu and "thu viec" in routing_query:
-        metadata_filter["dieu"] = ["Điều 24", "Điều 25", "Điều 27"]
+        metadata_filter["dieu"] = ["Điều 24", "Điều 25", "Điều 26", "Điều 27"]
+
+    if domain == "accounting" and not dieu and any(
+        phrase in routing_query for phrase in (
+            "cha me tang nha cho con",
+            "bo me tang nha cho con",
+            "tang nha cho con",
+            "tang bat dong san cho con",
+        )
+    ):
+        metadata_filter["dieu"] = "Điều 4"
+        metadata_filter["khoan"] = "Khoản 1"
 
     if domain == "labor" and not dieu and any(
         phrase in routing_query for phrase in ("nghi phep", "nghi hang nam", "ngay phep")

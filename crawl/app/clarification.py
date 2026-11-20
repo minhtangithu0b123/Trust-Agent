@@ -2,10 +2,88 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Literal
+import re
+
 from .query_normalization import normalize_for_routing
 
 
-def clarification_for_query(query: str, domain: str) -> str | None:
+@dataclass(frozen=True)
+class QuerySlots:
+    """Small, auditable slot state used before legal retrieval."""
+
+    domain: str
+    vehicle: str | None = None
+    party: str | None = None
+    taxpayer_type: str | None = None
+    topic: str | None = None
+
+
+@dataclass(frozen=True)
+class ClarificationDecision:
+    action: Literal["clarify", "proceed"]
+    slots: QuerySlots
+    missing_slots: tuple[str, ...] = ()
+    question: str | None = None
+    source: str = "rules"
+
+
+def _has_phrase(text: str, phrase: str) -> bool:
+    return re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", text) is not None
+
+
+def fill_query_slots(query: str, domain: str) -> QuerySlots:
+    """Extract only explicit slots; never infer a legal fact from retrieval."""
+    routing = normalize_for_routing(query)
+    vehicle = None
+    if any(_has_phrase(routing, term) for term in ("xe may", "xe mo to", "xe gan may", "xe may chuyen dung")):
+        vehicle = "motorbike"
+    elif any(_has_phrase(routing, term) for term in ("o to", "oto", "xe hoi", "xe con")):
+        vehicle = "car"
+    elif any(_has_phrase(routing, term) for term in ("xe dap", "xe dap dien")):
+        vehicle = "bicycle"
+
+    party = None
+    if _has_phrase(routing, "nguoi lao dong"):
+        party = "employee"
+    elif _has_phrase(routing, "nguoi su dung lao dong"):
+        party = "employer"
+
+    taxpayer_type = None
+    for term, value in ((
+        ("ho kinh doanh", "household_business"),
+        ("ca nhan kinh doanh", "individual_business"),
+        ("doanh nghiep", "enterprise"),
+        ("cong ty", "company"),
+    )):
+        if _has_phrase(routing, term):
+            taxpayer_type = value
+            break
+
+    topic = None
+    for term, value in ((
+        ("toc do", "speed"), ("mu bao hiem", "helmet"),
+        ("day an toan", "seatbelt"), ("nong do con", "alcohol"),
+        ("cham dut hop dong", "termination"), ("thue", "tax"),
+    )):
+        if _has_phrase(routing, term):
+            topic = value
+            break
+    return QuerySlots(domain, vehicle, party, taxpayer_type, topic)
+
+
+def build_clarification_decision(query: str, domain: str) -> ClarificationDecision:
+    """Combine slot filling with the existing deterministic clarification gates."""
+    slots = fill_query_slots(query, domain)
+    question = _rule_question_for_query(query, domain)
+    if question is None:
+        return ClarificationDecision("proceed", slots, source="rules")
+    missing = ("vehicle",) if domain == "traffic" else ("party",) if domain == "labor" else ("taxpayer_type",)
+    return ClarificationDecision("clarify", slots, missing, question, source="rules")
+
+
+def _rule_question_for_query(query: str, domain: str) -> str | None:
     """Return one focused follow-up question when a required facet is missing.
 
     This runs before retrieval so an agent cannot answer with evidence for the
@@ -62,3 +140,9 @@ def clarification_for_query(query: str, domain: str) -> str | None:
             return "Bạn muốn hỏi nghĩa vụ thuế của hộ kinh doanh, cá nhân kinh doanh hay doanh nghiệp?"
 
     return None
+
+
+def clarification_for_query(query: str, domain: str) -> str | None:
+    """Backward-compatible facade returning only the follow-up text."""
+    decision = build_clarification_decision(query, domain)
+    return decision.question if decision.action == "clarify" else None

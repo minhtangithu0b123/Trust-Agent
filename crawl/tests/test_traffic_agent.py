@@ -192,7 +192,7 @@ def test_traffic_agent_hallucinated_article_downgraded_by_guardrail(monkeypatch)
     assert result["citations"] == []
     assert len(result.get("guardrail_warnings", [])) >= 1
     assert "Điều 999" in result["guardrail_warnings"][0]
-    assert "[CẢNH BÁO:" in result["answer"]
+    assert result["answer"].startswith("Chưa đủ căn cứ")
 
 
 def test_traffic_agent_robust_with_evidence_lacking_citation_key(monkeypatch):

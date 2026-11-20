@@ -19,6 +19,7 @@ from .agents.labor_agent import run_labor_agent
 from .agents.accounting_agent import run_accounting_agent
 from .config import Settings, get_settings
 from .query_normalization import clean_query, expand_query_for_retrieval, normalize_for_routing
+from .clarification import build_clarification_decision
 from .llm import build_structured_model
 from .overview import build_domain_overview, detect_overview_domain
 
@@ -209,6 +210,8 @@ def _keyword_classify(
                 "tai nan", "phat nguoi", "cho muon xe", "phat giao thong", "vi pham giao thong",
             "via he", "un tac", "mu bao hiem", "nguoi ngoi sau",
             "cao toc", "dung do", "cong benh vien", "roi khoi hien truong",
+            "ket cau", "nguoi di bo", "vach sang duong", "phat nguoi",
+            "den chieu xa", "buong ca hai tay", "day an toan", "tre em",
         ),
         "labor": (
             "lao dong", "nguoi lao dong", "hop dong lao dong", "tien luong",
@@ -219,6 +222,13 @@ def _keyword_classify(
             "nghi viec", "bao hiem xa hoi",
             "ngay le", "ngay tet", "thai san", "dat coc", "nguoi lao dong nuoc ngoai",
             "thu viec toi da", "ket hon", "pha san", "co phieu thay vi tien mat",
+            "ho tro nhan vien", "phuc vu cong viec",
+            "ca dem", "ket hon", "truy dong", "khong dong bao hiem",
+            "tam dinh chi", "nghi trua", "ngoai te", "tien luong bang ngoai te",
+            "bao hiem nhan tho", "chi tra bao hiem cho nhan vien",
+            "nuoi con duoi 12 thang", "giam thoi gian lam viec", "luong net",
+            "cong tac nuoc ngoai", "cong tac phi", "lam viec doc hai", "doc hai",
+            "khong tron thoi gian",
         ),
         "accounting": (
             "thue", "ke toan", "hoa don", "vat", "gtgt",
@@ -229,6 +239,11 @@ def _keyword_classify(
             "cham nop", "tien cham nop", "ban o to", "gia tri gia tang",
             "khau tru toan bo", "lao dong nuoc ngoai",
             "phu cap an trua", "xang xe", "nhieu cua hang", "thue suat", "co phieu",
+            "nguoi than o nuoc ngoai", "tien ma hoa", "thue nha thau", "quang cao facebook",
+            "ban hang ra nuoc ngoai", "xuat khau", "nhap khau", "may moc", "hoa don dien tu",
+            "tien thue nha", "hoc phi cho con",
+            "co phan chua niem yet", "chuyen nhuong co phan", "nguyen vat lieu", "boi thuong hop dong",
+            "luong net", "thue thu nhap ca nhan", "bao hiem bat buoc",
         ),
     }
     matched = [
@@ -243,7 +258,11 @@ def _keyword_classify(
         "nghi phep", "thu viec", "sa thai", "cham dut", "bao hiem xa hoi",
         "dao tao", "nghi viec", "ngay le", "ngay tet", "thai san",
         "dat coc", "ket hon", "pha san", "giao hang", "bang co phieu",
-        "co phieu thay vi tien mat",
+        "co phieu thay vi tien mat", "ho tro nhan vien", "phuc vu cong viec",
+        "bao hiem nhan tho", "bao hiem cho nhan vien",
+        "nuoi con duoi 12 thang", "giam thoi gian lam viec", "luong net", "bao hiem bat buoc",
+        "cong tac nuoc ngoai", "cong tac phi", "lam viec doc hai", "doc hai",
+        "khong tron thoi gian",
     )
     if "labor" in matched and "accounting" in matched:
         if not any(term in text for term in labor_strong_terms):
@@ -351,6 +370,29 @@ def _classify_query(
     return _expand_classifications(_keyword_classify(routing_query, original_query), original_query)
 
 
+def preflight_query(query: str) -> dict[str, str] | None:
+    """Resolve clarification before retrieval and before x402 payment."""
+    original_query = clean_query(query)
+    intent_result = get_intent_guardrail().check_intent(original_query)
+    if intent_result.intent != "in_scope":
+        answer = (
+            CLARIFICATION_ANSWER
+            if intent_result.intent == "needs_clarification"
+            else (intent_result.response or CLARIFICATION_ANSWER)
+        )
+        return {"status": intent_result.intent, "answer": answer}
+
+    routing_query = normalize_for_routing(original_query)
+    classifications = _keyword_classify(routing_query, original_query)
+    if len(classifications) != 1:
+        return None
+    domain = classifications[0]["domain"]
+    decision = build_clarification_decision(original_query, domain)
+    if decision.action != "clarify" or not decision.question:
+        return None
+    return {"status": "needs_clarification", "answer": decision.question}
+
+
 def classify_query(state: RouterState) -> dict[str, Any]:
     original_query = clean_query(state.get("original_query") or state.get("query", ""))
     contextual_query = clean_query(state.get("query") or original_query)
@@ -359,7 +401,14 @@ def classify_query(state: RouterState) -> dict[str, Any]:
     # Input Intent Guardrail: Chan chao hoi & cau hoi ngoai le (0d API)
     intent_result = get_intent_guardrail().check_intent(original_query)
     if intent_result.intent != "in_scope":
-        resp_msg = intent_result.response or CLARIFICATION_ANSWER
+        # An unclear legal intent should ask for the supported domain so the
+        # next turn can be routed. Keep the dedicated greeting/out-of-scope
+        # responses for those intents.
+        resp_msg = (
+            CLARIFICATION_ANSWER
+            if intent_result.intent == "needs_clarification"
+            else (intent_result.response or CLARIFICATION_ANSWER)
+        )
         status_val = intent_result.intent
         return {
             "original_query": original_query,
@@ -643,7 +692,7 @@ def synthesize_results(state: RouterState) -> dict[str, Any]:
     )
 
     if guardrail_result.status != "verified":
-        final_answer = guardrail_result.verified_answer
+        final_answer = INSUFFICIENT_EVIDENCE
         final_status = guardrail_result.status
         final_citations = []
         guardrail_warnings = guardrail_result.warnings

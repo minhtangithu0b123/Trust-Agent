@@ -7,7 +7,7 @@ from typing import Any
 import re
 
 from ..config import get_settings
-from ..clarification import clarification_for_query
+from ..clarification import build_clarification_decision
 from ..query_normalization import clean_query, normalize_for_routing
 from ..retrieval import get_hybrid_retriever
 from .base import (
@@ -162,9 +162,9 @@ def _reject_mixed_alcohol_thresholds(query: str, result: dict[str, Any]) -> dict
     return result
 
 def _clarification_for_ambiguous_query(query: str) -> str | None:
-    domain_clarification = clarification_for_query(query, TRAFFIC_DOMAIN)
-    if domain_clarification:
-        return domain_clarification
+    decision = build_clarification_decision(query, TRAFFIC_DOMAIN)
+    if decision.action == "clarify":
+        return decision.question
     routing = normalize_for_routing(query)
     helmet_terms = ("mu bao hiem", "doi mu", "doi non")
     vehicle_terms = (

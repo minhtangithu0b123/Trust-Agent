@@ -203,6 +203,7 @@ export default function Home() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [walletBusy, setWalletBusy] = useState(false);
   const [walletNotice, setWalletNotice] = useState<string | null>(null);
+  const [paidConversationIds, setPaidConversationIds] = useState<string[]>([]);
 
   const textarea = useRef<HTMLTextAreaElement>(null);
   const bottom = useRef<HTMLDivElement>(null);
@@ -213,6 +214,17 @@ export default function Home() {
   useEffect(() => {
     if (initializedRef.current) return;
     initializedRef.current = true;
+    try {
+      const storedPaid = window.localStorage.getItem("trust-agent-paid-conversations");
+      if (storedPaid) {
+        const parsed: unknown = JSON.parse(storedPaid);
+        if (Array.isArray(parsed)) {
+          setPaidConversationIds(parsed.filter((item): item is string => typeof item === "string"));
+        }
+      }
+    } catch {
+      // Ignore malformed local payment state and start conservatively.
+    }
 
     void (async () => {
       const items = await refreshConversations();
@@ -362,7 +374,7 @@ export default function Home() {
   async function submitQuestion(value: string, paid = false) {
     const query = value.trim();
     if (query.length < 2 || loading || loadingHistory) return;
-    if (paid && !walletAddress) {
+    if (paid && !walletAddress && !paidConversationIds.includes(threadId || "")) {
       setWalletNotice("Hãy kết nối ví trước khi gửi câu hỏi trả phí.");
       return;
     }
@@ -395,9 +407,13 @@ export default function Home() {
         conversationId = created.id;
       }
 
+      // x402 is charged once for a conversation. Clarification and follow-up
+      // turns reuse the normal router after the first successful payment.
+      const chargeThisTurn = paid && !paidConversationIds.includes(conversationId);
+
       let response: Response;
       let paidClient: Awaited<ReturnType<typeof createPaidX402Client>> | null = null;
-      if (paid) {
+      if (chargeThisTurn) {
         const validationResponse = await fetch("/api/paid/validate", {
           method: "POST",
           headers: { "content-type": "application/json", accept: "application/json" },
@@ -576,7 +592,7 @@ export default function Home() {
       }
 
       const answer = data as Answer;
-      if (paid && paidClient) {
+      if (chargeThisTurn && paidClient) {
         try {
           const settlement = paidClient.getSettlement(response);
           if (settlement.success) {
@@ -593,6 +609,15 @@ export default function Home() {
       }
       const resolvedConversationId =
         answer.conversation_id || answer.thread_id || answer.session_id || conversationId;
+      if (chargeThisTurn && resolvedConversationId) {
+        setPaidConversationIds((current) => {
+          const next = current.includes(resolvedConversationId)
+            ? current
+            : [...current, resolvedConversationId];
+          window.localStorage.setItem("trust-agent-paid-conversations", JSON.stringify(next));
+          return next;
+        });
+      }
       if (resolvedConversationId) {
         setThreadId(resolvedConversationId);
         window.localStorage.setItem(
@@ -1177,7 +1202,7 @@ export default function Home() {
                   className="paid-send-button"
                   type="button"
                   onClick={() => void submitQuestion(draft, true)}
-                  disabled={draft.trim().length < 2 || loading || loadingHistory || !walletAddress}
+                  disabled={draft.trim().length < 2 || loading || loadingHistory || (!walletAddress && !paidConversationIds.includes(threadId || ""))}
                   title="Gọi paid API pháp luật bằng x402; giá 0.01 USDC trên Avalanche Fuji"
                 >
                   {loading ? "ĐANG XỬ LÝ" : "X402 · 0.01 USDC"}

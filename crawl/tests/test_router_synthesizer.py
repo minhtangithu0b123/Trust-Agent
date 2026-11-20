@@ -151,7 +151,7 @@ class TestLLMSynthesizerExecution:
         assert output["guardrail_status"] == "unverified"
         assert len(output["guardrail_warnings"]) >= 1
         assert "Điều 999" in output["guardrail_warnings"][0] or "Điều 777" in output["guardrail_warnings"][0]
-        assert "[CẢNH BÁO:" in output["final_answer"]
+        assert output["final_answer"].startswith("Chưa đủ căn cứ")
         assert output["final_citations"] == []
 
     def test_fallback_synthesizer_when_no_api_key(self, monkeypatch):

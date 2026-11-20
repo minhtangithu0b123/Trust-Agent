@@ -28,10 +28,11 @@ class AgentProviderError(RuntimeError):
 
 
 class ToolDecision(BaseModel):
-    action: Literal["search", "get_document", "final"]
+    action: Literal["search", "get_document", "final", "clarify"]
     query: str = ""
     document_id: str = ""
     answer: str = ""
+    clarification: str = ""
     cited_document_ids: list[str] = Field(default_factory=list)
 
 
@@ -154,6 +155,7 @@ def _decide_node(state: DomainAgentState, model: Any, spec: DomainAgentSpec) -> 
     if steps > max_steps:
         return {"steps": steps, "decision": {"action": "final", "answer": spec.insufficient_answer}}
     prompt = (
+        "If a required user slot is missing, choose action=clarify and put one focused follow-up question in clarification; do not infer that slot from evidence. Otherwise use search, get_document, or final.\n"
         f"{spec.policy}\n\nCâu hỏi gốc: {state['query']}\n"
         f"Số bước đã dùng: {steps}/{max_steps}\nEvidence quan sát được:\n{_evidence_context(state)}\n\n"
         "Chọn action search, get_document hoặc final. Với search điền query; với get_document điền document_id. "
@@ -286,6 +288,10 @@ def _reflection_node(state: DomainAgentState, model: Any, spec: DomainAgentSpec)
 
 def _finalize_node(state: DomainAgentState, spec: DomainAgentSpec) -> dict[str, Any]:
     decision = state.get("decision", {})
+    if decision.get("action") == "clarify":
+        question = str(decision.get("clarification") or decision.get("answer") or "").strip()
+        if question:
+            return {"answer": question, "cited_document_ids": [], "status": "needs_clarification", "guardrail_warnings": []}
     answer = str(decision.get("answer") or spec.insufficient_answer).strip()
     if spec.insufficient_answer in answer:
         return {"answer": spec.insufficient_answer, "cited_document_ids": [], "status": "insufficient_evidence", "guardrail_warnings": []}
@@ -308,7 +314,7 @@ def _finalize_node(state: DomainAgentState, spec: DomainAgentSpec) -> dict[str, 
     if guardrail_result.status != "verified":
         logger.warning("%s citation guardrail downgraded status: %s", spec.agent_name, guardrail_result.warnings)
         return {
-            "answer": guardrail_result.verified_answer,
+            "answer": spec.insufficient_answer,
             "cited_document_ids": [],
             "status": guardrail_result.status,
             "guardrail_warnings": guardrail_result.warnings,
