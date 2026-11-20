@@ -40,7 +40,11 @@ class Settings(BaseSettings):
     )
     x402_enabled: bool = False
     x402_price_usd: str = "0.01"
-    x402_network: str = "eip155:84532"
+    x402_network: str = "eip155:43113"
+    x402_asset_address: str = ""
+    x402_asset_decimals: int = 6
+    x402_asset_name: str = "USD Coin"
+    x402_asset_version: str = "2"
     x402_pay_to: str = ""
     x402_facilitator_url: str = ""
     index_version: str = "development"

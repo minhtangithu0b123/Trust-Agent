@@ -3,7 +3,7 @@
 ## Product integrations: x402 and ERC-8004
 
 - The paid traffic endpoint is `POST /paid/traffic/ask`; it returns 503 unless x402 is explicitly enabled.
-- Install the optional SDK with `pip install -e '.[payments]'`. Configure `X402_ENABLED`, `X402_NETWORK`, `X402_PAY_TO`, and `X402_FACILITATOR_URL`. The sample network is Base Sepolia (`eip155:84532`); use test funds and a test facilitator for development.
+- Install the optional SDK with `pip install -e '.[payments]'`. Configure `X402_ENABLED`, `X402_NETWORK`, `X402_ASSET_ADDRESS`, `X402_PAY_TO`, and `X402_FACILITATOR_URL`. The demo uses Avalanche Fuji (`eip155:43113`) with Circle test USDC and the PayAI facilitator.
 - Do not enable production payments until the recipient wallet, facilitator, price, replay/idempotency behavior, and paid-request failure/refund policy are reviewed.
 - Paid traffic answers are committed to a local SQLite receipt ledger without storing the question. Citation receipts include SHA-256 hashes of retrieved text, an index-version label, and an answer hash.
 - Run `python scripts/prepare_provenance_batch.py` from `crawl/` to create a deterministic Merkle-root manifest. The manifest is not on-chain until a separately reviewed anchoring transaction is submitted.

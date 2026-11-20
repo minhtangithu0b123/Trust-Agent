@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { connectBaseSepoliaWallet, createPaidX402Client } from "../lib/x402-client";
+import { connectAvalancheFujiWallet, createPaidX402Client } from "../lib/x402-client";
 
 type AnswerStatus =
   | "verified"
@@ -247,9 +247,9 @@ export default function Home() {
     setWalletBusy(true);
     setWalletNotice(null);
     try {
-      const address = await connectBaseSepoliaWallet();
+      const address = await connectAvalancheFujiWallet();
       setWalletAddress(address);
-      setWalletNotice("Ví đã kết nối trên Base Sepolia. API trả phí chỉ ký khi bạn xác nhận.");
+      setWalletNotice("Ví đã kết nối trên Avalanche Fuji. API trả phí chỉ ký khi bạn xác nhận.");
     } catch (error: unknown) {
       setWalletNotice(error instanceof Error ? error.message : "Không thể kết nối ví.");
     } finally {
@@ -930,7 +930,7 @@ export default function Home() {
               className={`wallet-connect ${walletAddress ? "wallet-connected" : ""}`}
               onClick={() => void connectWallet()}
               disabled={walletBusy}
-              title={walletAddress || "Kết nối ví Base Sepolia để gọi API x402"}
+              title={walletAddress || "Kết nối ví Avalanche Fuji để gọi API x402"}
             >
               {walletBusy ? "ĐANG KẾT NỐI…" : walletAddress ? shortAddress(walletAddress) : "KẾT NỐI VÍ"}
             </button>
@@ -1047,9 +1047,9 @@ export default function Home() {
                       )}
                       {message.answer?.payment?.transaction && (
                         <div className="x402-receipt">
-                          <span>Đã thanh toán 0.01 USDC · Base Sepolia</span>
+                          <span>Đã thanh toán 0.01 USDC · Avalanche Fuji</span>
                           <a
-                            href={`https://sepolia.basescan.org/tx/${message.answer.payment.transaction}`}
+                            href={`https://testnet.snowtrace.io/tx/${message.answer.payment.transaction}`}
                             target="_blank"
                             rel="noreferrer"
                           >
@@ -1132,7 +1132,7 @@ export default function Home() {
                   type="button"
                   onClick={() => void submitQuestion(draft, true)}
                   disabled={draft.trim().length < 2 || loading || loadingHistory || !walletAddress}
-                  title="Gọi paid API giao thông bằng x402; giá 0.01 USDC trên Base Sepolia"
+                  title="Gọi paid API giao thông bằng x402; giá 0.01 USDC trên Avalanche Fuji"
                 >
                   {loading ? "ĐANG XỬ LÝ" : "X402 · 0.01 USDC"}
                 </button>
@@ -1141,7 +1141,7 @@ export default function Home() {
           </form>
           <div className="x402-note" role="status">
             <span>TRẢ PHÍ CHỈ CHO LUẬT GIAO THÔNG</span>
-            <span>0.01 USDC · Base Sepolia</span>
+            <span>0.01 USDC · Avalanche Fuji</span>
             {walletAddress && <span>Ví {shortAddress(walletAddress)}</span>}
             {walletNotice && <span className="x402-wallet-notice">{walletNotice}</span>}
             <span className="x402-history-note">Câu hỏi x402 hiện không được lưu vào lịch sử máy chủ.</span>

@@ -53,7 +53,14 @@ def main() -> None:
     registry_id = f"eip155:{chain_id}:{registry_address}"
     metadata_path = Path(os.getenv("ERC8004_METADATA_FILE", "app/agent-registration.example.json"))
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    metadata["registrations"] = [{"agentId": agent_id, "agentRegistry": registry_id}]
+    registrations = metadata.get("registrations", [])
+    registrations = [
+        registration
+        for registration in registrations
+        if registration.get("agentRegistry") != registry_id
+    ]
+    registrations.append({"agentId": agent_id, "agentRegistry": registry_id})
+    metadata["registrations"] = registrations
     metadata["active"] = True
     metadata["x402Support"] = os.getenv("X402_ENABLED", "false").casefold() == "true"
     metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

@@ -2,6 +2,7 @@ import hmac
 import inspect
 import json
 import logging
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +54,7 @@ def configure_x402() -> None:
         from x402.http.middleware.fastapi import PaymentMiddlewareASGI
         from x402.http.types import RouteConfig
         from x402.mechanisms.evm.exact import ExactEvmServerScheme
+        from x402.schemas import AssetAmount
         from x402.server import x402ResourceServer
     except ImportError as exc:
         raise RuntimeError("Install the payments extra: pip install -e '.[payments]'") from exc
@@ -61,13 +63,23 @@ def configure_x402() -> None:
         HTTPFacilitatorClient(FacilitatorConfig(url=settings.x402_facilitator_url))
     )
     server.register(settings.x402_network, ExactEvmServerScheme())
+    price: str | AssetAmount = f"${settings.x402_price_usd}"
+    if settings.x402_asset_address:
+        atomic_amount = Decimal(settings.x402_price_usd) * (Decimal(10) ** settings.x402_asset_decimals)
+        if atomic_amount != atomic_amount.to_integral_value():
+            raise RuntimeError("X402_PRICE_USD supports fewer decimal places than X402_ASSET_DECIMALS")
+        price = AssetAmount(
+            amount=str(int(atomic_amount)),
+            asset=settings.x402_asset_address,
+            extra={"name": settings.x402_asset_name, "version": settings.x402_asset_version},
+        )
     app.add_middleware(
         PaymentMiddlewareASGI,
         routes={
             "POST /paid/traffic/ask": RouteConfig(
                 accepts=[PaymentOption(
                     scheme="exact",
-                    price=f"${settings.x402_price_usd}",
+                    price=price,
                     network=settings.x402_network,
                     pay_to=settings.x402_pay_to,
                 )],
