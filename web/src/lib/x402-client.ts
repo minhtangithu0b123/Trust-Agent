@@ -95,7 +95,16 @@ export async function createPaidX402Client(address: Address) {
   };
 
   const client = new x402Client();
-  client.setSpendControls({ maxAmountPerPayment: "$0.01" });
+  client.setSpendControls({
+    maxAmountPerPayment: "$0.01",
+    allowedAssets: [
+      {
+        network: AVALANCHE_FUJI_NETWORK,
+        asset: AVALANCHE_FUJI_USDC,
+        maxAmountPerPayment: PAID_ASK_AMOUNT,
+      },
+    ],
+  });
   registerExactEvmScheme(client, {
     signer,
     networks: [AVALANCHE_FUJI_NETWORK],
